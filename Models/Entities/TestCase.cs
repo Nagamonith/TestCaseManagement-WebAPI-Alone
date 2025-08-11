@@ -8,7 +8,7 @@ public class TestCase
     public string TestCaseId { get; set; } = string.Empty;
     public string UseCase { get; set; } = string.Empty;
     public string Scenario { get; set; } = string.Empty;
-    public string TestType { get; set; } = string.Empty;
+    public string TestType { get; set; } = "Manual"; // Default to Manual
     public string? TestTool { get; set; }
     public string? Result { get; set; }
     public string? Actual { get; set; }

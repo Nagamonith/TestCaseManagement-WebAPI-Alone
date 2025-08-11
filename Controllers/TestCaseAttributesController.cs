@@ -28,6 +28,12 @@ public class TestCaseAttributesController : ControllerBase
         await _attributeService.AddAttributeAsync(testCaseId, request);
         return NoContent();
     }
+    [HttpPut("{key}")]
+    public async Task<ActionResult> Update(string testCaseId, string key, [FromBody] TestCaseAttributeRequest request)
+    {
+        var success = await _attributeService.UpdateAttributeAsync(testCaseId, key, request);
+        return success ? NoContent() : NotFound();
+    }
 
     [HttpDelete("{key}")]
     public async Task<ActionResult> Delete(string testCaseId, string key)

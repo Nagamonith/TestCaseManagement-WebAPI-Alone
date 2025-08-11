@@ -11,4 +11,7 @@ public class ModuleAttribute
     public string? Options { get; set; }
 
     public Module Module { get; set; } = null!;
+
+    // New: test-case attributes referencing this module attribute
+    public ICollection<TestCaseAttribute> TestCaseAttributes { get; set; } = new List<TestCaseAttribute>();
 }

@@ -38,6 +38,19 @@ public class ManualTestCaseStepService : IManualTestCaseStepService
 
         await _stepRepository.AddAsync(step);
     }
+    public async Task<bool> UpdateStepAsync(string testCaseId, int stepId, ManualTestCaseStepRequest request)
+    {
+        var step = (await _stepRepository.FindAsync(s => s.TestCaseId == testCaseId && s.Id == stepId)).FirstOrDefault();
+        if (step == null) return false;
+
+        // Update the step properties
+        step.Steps = request.Steps;
+        step.ExpectedResult = request.ExpectedResult;
+
+        _stepRepository.Update(step);
+        await _stepRepository.SaveChangesAsync();
+        return true;
+    }
 
     public async Task<bool> DeleteStepAsync(string testCaseId, int stepId)
     {

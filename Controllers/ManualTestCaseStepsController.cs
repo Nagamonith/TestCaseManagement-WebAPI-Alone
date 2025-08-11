@@ -29,6 +29,13 @@ public class ManualTestCaseStepsController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("{stepId}")]
+    public async Task<ActionResult> Update(string testCaseId, int stepId, [FromBody] ManualTestCaseStepRequest request)
+    {
+        var success = await _stepService.UpdateStepAsync(testCaseId, stepId, request);
+        return success ? NoContent() : NotFound();
+    }
+
     [HttpDelete("{stepId}")]
     public async Task<ActionResult> Delete(string testCaseId, int stepId)
     {

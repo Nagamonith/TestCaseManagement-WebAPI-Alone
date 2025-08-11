@@ -12,4 +12,10 @@ public class TestSuiteTestCase
     public TestSuite TestSuite { get; set; } = null!;
     public TestCase TestCase { get; set; } = null!;
     public Module Module { get; set; } = null!;
+
+    // Remove this unnecessary operator - it's causing the error
+    // public static implicit operator TestSuiteTestCase(TestSuiteTestCase v)
+    // {
+    //     throw new NotImplementedException();
+    // }
 }

@@ -1,26 +1,31 @@
+﻿// TestCaseAttributeConfiguration.cs
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using TestCaseManagement.Api.Models.Entities;
-
-namespace TestCaseManagement.Data.Configurations;
 
 public class TestCaseAttributeConfiguration : IEntityTypeConfiguration<TestCaseAttribute>
 {
     public void Configure(EntityTypeBuilder<TestCaseAttribute> builder)
     {
-        builder.HasKey(t => new { t.TestCaseId, t.Key });
+        builder.ToTable("TestCaseAttributes");
 
-        builder.Property(t => t.Key)
-            .IsRequired()
-            .HasMaxLength(100);
+        // Composite primary key
+        builder.HasKey(ta => new { ta.TestCaseId, ta.ModuleAttributeId });
 
-        builder.Property(t => t.Value)
+        builder.Property(ta => ta.Value)
             .IsRequired()
             .HasColumnType("nvarchar(max)");
 
-        builder.HasOne(t => t.TestCase)
-            .WithMany(t => t.TestCaseAttributes)
-            .HasForeignKey(t => t.TestCaseId)
+        // Relationship with TestCase
+        builder.HasOne(ta => ta.TestCase)
+            .WithMany(tc => tc.TestCaseAttributes)
+            .HasForeignKey(ta => ta.TestCaseId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Relationship with ModuleAttribute (now required)
+        builder.HasOne(ta => ta.ModuleAttribute)
+            .WithMany(ma => ma.TestCaseAttributes)
+            .HasForeignKey(ta => ta.ModuleAttributeId)
+            .OnDelete(DeleteBehavior.Restrict); // Prevent deletion if referenced
     }
 }

@@ -28,35 +28,44 @@ namespace TestCaseManagement.Api.Mappings
             CreateMap<Module, ModuleWithAttributesResponse>();
 
             // ModuleAttribute mappings
-            CreateMap<ModuleAttributeRequest, ModuleAttribute>();
-            CreateMap<ModuleAttribute, ModuleAttributeRequest>();
+            CreateMap<ModuleAttributeRequest, ModuleAttribute>().ReverseMap();
 
             // TestSuite mappings
             CreateMap<CreateTestSuiteRequest, TestSuite>();
             CreateMap<TestSuite, TestSuiteResponse>();
             CreateMap<TestSuite, TestSuiteWithCasesResponse>();
+            CreateMap<TestSuite, TestRunTestSuiteResponse>(); // Added mapping
 
             // TestCase mappings
             CreateMap<CreateTestCaseRequest, TestCase>();
             CreateMap<UpdateTestCaseRequest, TestCase>();
-
-            // ✅ Updated TestCase → TestCaseResponse mapping (explicitly includes Actual & Remarks)
             CreateMap<TestCase, TestCaseResponse>()
                 .ForMember(dest => dest.Actual, opt => opt.MapFrom(src => src.Actual))
                 .ForMember(dest => dest.Remarks, opt => opt.MapFrom(src => src.Remarks));
 
-            // ✅ Ensure TestCaseDetailResponse also includes them (if needed)
             CreateMap<TestCase, TestCaseDetailResponse>()
+                .ForMember(dest => dest.Steps, opt => opt.MapFrom(src => src.ManualTestCaseSteps))
+                .ForMember(dest => dest.Expected, opt => opt.MapFrom(src =>
+                    src.ManualTestCaseSteps.Select(s => new ManualTestCaseStepRequest
+                    {
+                        Steps = string.Empty,
+                        ExpectedResult = s.ExpectedResult
+                    }).ToList()
+                ))
+                .ForMember(dest => dest.Attributes, opt => opt.MapFrom(src => src.TestCaseAttributes))
                 .ForMember(dest => dest.Actual, opt => opt.MapFrom(src => src.Actual))
                 .ForMember(dest => dest.Remarks, opt => opt.MapFrom(src => src.Remarks));
 
             // ManualTestCaseStep mappings
-            CreateMap<ManualTestCaseStepRequest, ManualTestCaseStep>();
-            CreateMap<ManualTestCaseStep, ManualTestCaseStepRequest>();
+            CreateMap<ManualTestCaseStep, ManualTestCaseStepRequest>().ReverseMap();
 
             // TestCaseAttribute mappings
-            CreateMap<TestCaseAttributeRequest, TestCaseAttribute>();
-            CreateMap<TestCaseAttribute, TestCaseAttributeResponse>();
+            CreateMap<TestCaseAttribute, TestCaseAttributeRequest>().ReverseMap();
+            CreateMap<TestCaseAttribute, TestCaseAttributeResponse>()
+                .ForMember(dest => dest.Key, opt => opt.MapFrom(src => src.ModuleAttribute.Key))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.ModuleAttribute.Name))
+                .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.ModuleAttribute.Type))
+                .ForMember(dest => dest.IsRequired, opt => opt.MapFrom(src => src.ModuleAttribute.IsRequired));
 
             // Upload mappings
             CreateMap<Upload, UploadResponse>();

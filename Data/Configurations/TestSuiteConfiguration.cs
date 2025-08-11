@@ -30,5 +30,15 @@ public class TestSuiteConfiguration : IEntityTypeConfiguration<TestSuite>
             .WithMany(p => p.TestSuites)
             .HasForeignKey(ts => ts.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(ts => ts.TestSuiteTestCases)
+            .WithOne(tstc => tstc.TestSuite)
+            .HasForeignKey(tstc => tstc.TestSuiteId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(ts => ts.TestRunTestSuites)
+            .WithOne(trts => trts.TestSuite)
+            .HasForeignKey(trts => trts.TestSuiteId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

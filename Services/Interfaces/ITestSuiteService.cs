@@ -9,5 +9,5 @@ public interface ITestSuiteService
     Task<TestSuiteResponse?> GetTestSuiteByIdAsync(string productId, string id);
     Task<IdResponse> CreateTestSuiteAsync(string productId, CreateTestSuiteRequest request);
     Task<bool> UpdateTestSuiteAsync(string productId, string id, CreateTestSuiteRequest request);
-    Task<bool> DeleteTestSuiteAsync(string productId, string id);
+    Task<bool> DeleteTestSuiteAsync(string productId, string id, bool forceDelete = false);
 }

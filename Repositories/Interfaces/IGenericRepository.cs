@@ -1,4 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
+using System.Data;
 using System.Linq.Expressions;
 
 namespace TestCaseManagement.Repositories.Interfaces;
@@ -12,10 +15,13 @@ public interface IGenericRepository<T> where T : class
     Task<IEnumerable<T>> FindAsync(
         Expression<Func<T, bool>> filter,
         Func<IQueryable<T>, IIncludableQueryable<T, object>> include);
+    IQueryable<T> Query();
     Task AddAsync(T entity);
     Task AddRangeAsync(IEnumerable<T> entities);
     void Update(T entity);
     void Remove(T entity);
     void RemoveRange(IEnumerable<T> entities);
     Task SaveChangesAsync();
+    Task<IDbContextTransaction> BeginTransactionAsync(IsolationLevel isolationLevel = IsolationLevel.ReadCommitted);
+    DbContext GetDbContext();
 }

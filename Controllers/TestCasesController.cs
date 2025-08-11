@@ -51,4 +51,19 @@ public class TestCasesController : ControllerBase
         var success = await _testCaseService.DeleteTestCaseAsync(moduleId, id);
         return success ? NoContent() : NotFound();
     }
+
+    [HttpGet("{testCaseId}/attributes")]
+    public async Task<ActionResult<IEnumerable<TestCaseAttributeResponse>>> GetAttributes(string moduleId, string testCaseId)
+    {
+        var attributes = await _testCaseService.GetTestCaseAttributesAsync(moduleId, testCaseId);
+        return Ok(attributes);
+    }
+
+    [HttpPut("{testCaseId}/attributes")]
+    public async Task<IActionResult> UpdateAttributes(string moduleId, string testCaseId,
+        [FromBody] IEnumerable<TestCaseAttributeRequest> attributes)
+    {
+        var success = await _testCaseService.UpdateTestCaseAttributesAsync(moduleId, testCaseId, attributes);
+        return success ? NoContent() : NotFound();
+    }
 }

@@ -10,4 +10,9 @@ public interface ITestCaseService
     Task<IdResponse> CreateTestCaseAsync(CreateTestCaseRequest request);
     Task<bool> UpdateTestCaseAsync(string moduleId, string id, UpdateTestCaseRequest request);
     Task<bool> DeleteTestCaseAsync(string moduleId, string id);
+    Task<IEnumerable<TestCaseAttributeResponse>> GetTestCaseAttributesAsync(string moduleId, string testCaseId);
+    Task<bool> UpdateTestCaseAttributesAsync(string moduleId, string testCaseId,
+        IEnumerable<TestCaseAttributeRequest> attributes);
+
+
 }
