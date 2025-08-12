@@ -34,7 +34,7 @@ public class TestCaseAttributeService : ITestCaseAttributeService
 
         return attributes.Select(a => new TestCaseAttributeResponse
         {
-            Key = a.ModuleAttribute.Key,  // Access Key through ModuleAttribute
+            Key = a.ModuleAttribute.Key,
             Value = a.Value,
             Name = a.ModuleAttribute.Name,
             Type = a.ModuleAttribute.Type,
@@ -47,9 +47,8 @@ public class TestCaseAttributeService : ITestCaseAttributeService
         var testCaseExists = await _testCaseRepository.GetByIdAsync(testCaseId) != null;
         if (!testCaseExists) throw new KeyNotFoundException("Test case not found");
 
-        // Find the ModuleAttribute by key
         var moduleAttribute = (await _moduleAttributeRepository
-            .FindAsync(ma => ma.Key == request.Key))
+            .FindAsync(ma => ma.Key.ToLower() == request.Key.ToLower()))
             .FirstOrDefault();
 
         if (moduleAttribute == null)
@@ -63,23 +62,22 @@ public class TestCaseAttributeService : ITestCaseAttributeService
         };
 
         await _attributeRepository.AddAsync(attribute);
+        await _attributeRepository.SaveChangesAsync();
     }
+
     public async Task<bool> UpdateAttributeAsync(string testCaseId, string key, TestCaseAttributeRequest request)
     {
-        // Find the attribute by joining with ModuleAttribute
         var attribute = (await _attributeRepository.FindAsync(
             a => a.TestCaseId == testCaseId,
             include: query => query.Include(a => a.ModuleAttribute)))
-            .FirstOrDefault(a => a.ModuleAttribute.Key == key);
+            .FirstOrDefault(a => string.Equals(a.ModuleAttribute.Key, key, StringComparison.OrdinalIgnoreCase));
 
         if (attribute == null) return false;
 
-        // Verify the key in request matches the path parameter
-        if (key != request.Key)
+        if (!string.Equals(key, request.Key, StringComparison.OrdinalIgnoreCase))
         {
-            // Find the new ModuleAttribute if the key is being changed
             var newModuleAttribute = (await _moduleAttributeRepository
-                .FindAsync(ma => ma.Key == request.Key))
+                .FindAsync(ma => ma.Key.ToLower() == request.Key.ToLower()))
                 .FirstOrDefault();
 
             if (newModuleAttribute == null)
@@ -90,19 +88,25 @@ public class TestCaseAttributeService : ITestCaseAttributeService
 
         attribute.Value = request.Value;
         _attributeRepository.Update(attribute);
+        await _attributeRepository.SaveChangesAsync();
+
         return true;
     }
+
     public async Task<bool> DeleteAttributeAsync(string testCaseId, string key)
     {
-        // Find the attribute by joining with ModuleAttribute
         var attribute = (await _attributeRepository.FindAsync(
             a => a.TestCaseId == testCaseId,
             include: query => query.Include(a => a.ModuleAttribute)))
-            .FirstOrDefault(a => a.ModuleAttribute.Key == key);
+            .FirstOrDefault(a => string.Equals(a.ModuleAttribute.Key, key, StringComparison.OrdinalIgnoreCase));
 
         if (attribute == null) return false;
 
-        _attributeRepository.Remove(attribute);
+        // Clear the value instead of deleting the record
+        attribute.Value = string.Empty;
+        _attributeRepository.Update(attribute);
+        await _attributeRepository.SaveChangesAsync();
+
         return true;
     }
 }

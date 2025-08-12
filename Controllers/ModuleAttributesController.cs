@@ -29,6 +29,7 @@ public class ModuleAttributesController : ControllerBase
         var result = await _attributeService.CreateAttributeAsync(moduleId, request);
         return CreatedAtAction(nameof(GetAll), new { moduleId }, result);
     }
+
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string moduleId, string id, [FromBody] ModuleAttributeRequest request)
     {

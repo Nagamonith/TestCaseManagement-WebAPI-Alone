@@ -21,17 +21,19 @@ namespace TestCaseManagement.Services.Implementations
         private readonly IGenericRepository<Product> _productRepository;
         private readonly AppDbContext _dbContext;
         private readonly ILogger<ModuleService> _logger;
+        private readonly IMapper _mapper;
 
         public ModuleService(
             IGenericRepository<Module> moduleRepository,
             IGenericRepository<Product> productRepository,
             AppDbContext dbContext,
-            ILogger<ModuleService> logger)
+            ILogger<ModuleService> logger, IMapper mapper)
         {
             _moduleRepository = moduleRepository;
             _productRepository = productRepository;
             _dbContext = dbContext;
             _logger = logger;
+            _mapper = mapper;
         }
 
         public async Task<IEnumerable<ModuleResponse>> GetAllModulesAsync(string productId)
@@ -238,5 +240,19 @@ namespace TestCaseManagement.Services.Implementations
                 throw;
             }
         }
+        public async Task<ModuleWithAttributesResponse?> GetModuleWithAttributesAsync(string productId, string moduleId)
+        {
+            var module = await _dbContext.Modules
+                .Include(m => m.ModuleAttributes)
+                .Where(m => m.ProductId == productId && m.Id == moduleId)
+                .FirstOrDefaultAsync();
+
+            if (module == null) return null;
+
+            // Map to response DTO including attributes
+            // You may need AutoMapper config for this DTO
+            return _mapper.Map<ModuleWithAttributesResponse>(module);
+        }
+
     }
 }
