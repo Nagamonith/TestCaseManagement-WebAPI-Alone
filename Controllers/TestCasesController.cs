@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TestCaseManagement.Api.Models.DTOs.Common;
 using TestCaseManagement.Api.Models.DTOs.TestCases;
-using TestCaseManagement.Services.Implementations;
 using TestCaseManagement.Services.Interfaces;
 
 namespace TestCaseManagement.Api.Controllers;
@@ -12,9 +11,9 @@ namespace TestCaseManagement.Api.Controllers;
 public class TestCasesController : ControllerBase
 {
     private readonly ITestCaseService _testCaseService;
-    private readonly ILogger<TestSuiteService> _logger;
+    private readonly ILogger<TestCasesController> _logger;
 
-    public TestCasesController(ITestCaseService testCaseService, ILogger<TestSuiteService> logger)
+    public TestCasesController(ITestCaseService testCaseService, ILogger<TestCasesController> logger)
     {
         _testCaseService = testCaseService;
         _logger = logger;
@@ -59,7 +58,6 @@ public class TestCasesController : ControllerBase
         }
         catch (Exception ex)
         {
-            // Log the full exception
             _logger.LogError(ex, "Error deleting test case {TestCaseId} in module {ModuleId}", id, moduleId);
 
             return StatusCode(500, new

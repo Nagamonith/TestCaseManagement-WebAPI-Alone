@@ -98,15 +98,61 @@ namespace TestCaseManagement.Services.Implementations
 
         public async Task<bool> UpdateTestCaseAsync(string moduleId, string id, UpdateTestCaseRequest request)
         {
-            var testCase = (await _testCaseRepository.FindAsync(tc => tc.ModuleId == moduleId && tc.Id == id)).FirstOrDefault();
+            var testCase = (await _testCaseRepository.FindAsync(tc => tc.ModuleId == moduleId && tc.Id == id,
+                include: q => q.Include(tc => tc.ManualTestCaseSteps))).FirstOrDefault();
+
             if (testCase == null) return false;
 
+            // Map basic fields
             _mapper.Map(request, testCase);
 
             // Explicitly update ProductVersionId if not mapped by AutoMapper
             testCase.ProductVersionId = request.ProductVersionId;
 
             testCase.UpdatedAt = DateTime.UtcNow;
+
+            // === Handle Steps update ===
+            if (request.Steps != null)
+            {
+                // Existing steps in DB
+                var existingSteps = testCase.ManualTestCaseSteps.ToList();
+
+                // Update or add steps from request
+                foreach (var stepReq in request.Steps)
+                {
+                    if (stepReq.Id.HasValue)
+                    {
+                        // Update existing step
+                        var existingStep = existingSteps.FirstOrDefault(s => s.Id == stepReq.Id.Value);
+                        if (existingStep != null)
+                        {
+                            existingStep.Steps = stepReq.Steps;
+                            existingStep.ExpectedResult = stepReq.ExpectedResult;
+                        }
+                    }
+                    else
+                    {
+                        // Add new step
+                        var newStep = new ManualTestCaseStep
+                        {
+                            Steps = stepReq.Steps,
+                            ExpectedResult = stepReq.ExpectedResult,
+                            TestCaseId = testCase.Id
+                        };
+                        testCase.ManualTestCaseSteps.Add(newStep);
+                    }
+                }
+
+                // Remove steps not in the incoming request (deleted by user)
+                var stepIdsInRequest = request.Steps.Where(s => s.Id.HasValue).Select(s => s.Id.Value).ToHashSet();
+                var stepsToRemove = existingSteps.Where(s => !stepIdsInRequest.Contains(s.Id)).ToList();
+
+                foreach (var stepToRemove in stepsToRemove)
+                {
+                    _dbContext.ManualTestCaseSteps.Remove(stepToRemove);
+                }
+            }
+
             _testCaseRepository.Update(testCase);
             await _dbContext.SaveChangesAsync();
             return true;
