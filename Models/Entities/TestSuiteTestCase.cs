@@ -6,16 +6,14 @@ public class TestSuiteTestCase
     public string TestSuiteId { get; set; } = string.Empty;
     public string TestCaseId { get; set; } = string.Empty;
     public string ModuleId { get; set; } = string.Empty;
-    public string Version { get; set; } = string.Empty;
+
+    // Replace Version string with ProductVersionId FK
+    public string ProductVersionId { get; set; } = string.Empty;
+    public ProductVersion ProductVersion { get; set; } = null!;
+
     public DateTime AddedAt { get; set; } = DateTime.UtcNow;
 
     public TestSuite TestSuite { get; set; } = null!;
     public TestCase TestCase { get; set; } = null!;
     public Module Module { get; set; } = null!;
-
-    // Remove this unnecessary operator - it's causing the error
-    // public static implicit operator TestSuiteTestCase(TestSuiteTestCase v)
-    // {
-    //     throw new NotImplementedException();
-    // }
 }

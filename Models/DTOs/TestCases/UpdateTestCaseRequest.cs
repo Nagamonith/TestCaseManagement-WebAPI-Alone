@@ -5,6 +5,8 @@ namespace TestCaseManagement.Api.Models.DTOs.TestCases;
 
 public class UpdateTestCaseRequest
 {
+    public string? ProductVersionId { get; set; }  // Added version FK property
+
     public string? UseCase { get; set; }
     public string? Scenario { get; set; }
     public string? TestType { get; set; }

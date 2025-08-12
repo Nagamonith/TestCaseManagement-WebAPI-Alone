@@ -11,9 +11,9 @@ public class CreateTestCaseValidator : AbstractValidator<CreateTestCaseRequest>
         RuleFor(x => x.ModuleId)
             .NotEmpty().WithMessage("Module ID is required");
 
-        RuleFor(x => x.Version)
-            .NotEmpty().WithMessage("Version is required")
-            .MaximumLength(20).WithMessage("Version cannot exceed 20 characters");
+        RuleFor(x => x.ProductVersionId)  // Validate ProductVersionId instead of Version
+            .NotEmpty().WithMessage("Product version ID is required")
+            .MaximumLength(50).WithMessage("Product version ID cannot exceed 50 characters");
 
         RuleFor(x => x.TestCaseId)
             .NotEmpty().WithMessage("Test case ID is required")

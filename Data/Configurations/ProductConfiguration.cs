@@ -14,9 +14,16 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.CreatedAt).HasDefaultValueSql("GETDATE()");
         builder.Property(p => p.IsActive).HasDefaultValue(true);
 
+        // Cascade delete ProductVersions when Product deleted (DB cascade)
         builder.HasMany(p => p.ProductVersions)
             .WithOne(pv => pv.Product)
             .HasForeignKey(pv => pv.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // ClientCascade delete Modules when Product deleted (EF Core in-memory cascade)
+        builder.HasMany(p => p.Modules)
+            .WithOne(m => m.Product)
+            .HasForeignKey(m => m.ProductId)
+            .OnDelete(DeleteBehavior.ClientCascade);
     }
 }

@@ -3,10 +3,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace TestCaseManagement.Api.Data.Migrations
+namespace TestCaseManagement.Api.Migrations
 {
     /// <inheritdoc />
-    public partial class FixModuleSchema : Migration
+    public partial class MakeProductVersionIdNullableInTestCase : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -99,12 +99,11 @@ namespace TestCaseManagement.Api.Data.Migrations
                 {
                     Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     ProductId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    Version = table.Column<string>(type: "varchar(20)", unicode: false, maxLength: 20, nullable: false),
+                    ProductVersionId = table.Column<string>(type: "nvarchar(450)", nullable: true),
                     Name = table.Column<string>(type: "varchar(100)", unicode: false, maxLength: 100, nullable: false),
                     Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
-                    ProductVersionId = table.Column<string>(type: "nvarchar(450)", nullable: true)
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true)
                 },
                 constraints: table =>
                 {
@@ -113,13 +112,13 @@ namespace TestCaseManagement.Api.Data.Migrations
                         name: "FK_Modules_ProductVersions_ProductVersionId",
                         column: x => x.ProductVersionId,
                         principalTable: "ProductVersions",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Modules_Products_ProductId",
                         column: x => x.ProductId,
                         principalTable: "Products",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -142,7 +141,8 @@ namespace TestCaseManagement.Api.Data.Migrations
                         name: "FK_TestRunTestSuites_TestSuites_TestSuiteId",
                         column: x => x.TestSuiteId,
                         principalTable: "TestSuites",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -174,7 +174,7 @@ namespace TestCaseManagement.Api.Data.Migrations
                 {
                     Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     ModuleId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    Version = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ProductVersionId = table.Column<string>(type: "nvarchar(450)", nullable: true),
                     TestCaseId = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     UseCase = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Scenario = table.Column<string>(type: "nvarchar(max)", nullable: false),
@@ -195,6 +195,12 @@ namespace TestCaseManagement.Api.Data.Migrations
                         principalTable: "Modules",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_TestCases_ProductVersions_ProductVersionId",
+                        column: x => x.ProductVersionId,
+                        principalTable: "ProductVersions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -223,12 +229,18 @@ namespace TestCaseManagement.Api.Data.Migrations
                 columns: table => new
                 {
                     TestCaseId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    Key = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    ModuleAttributeId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     Value = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_TestCaseAttributes", x => new { x.TestCaseId, x.Key });
+                    table.PrimaryKey("PK_TestCaseAttributes", x => new { x.TestCaseId, x.ModuleAttributeId });
+                    table.ForeignKey(
+                        name: "FK_TestCaseAttributes_ModuleAttributes_ModuleAttributeId",
+                        column: x => x.ModuleAttributeId,
+                        principalTable: "ModuleAttributes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_TestCaseAttributes_TestCases_TestCaseId",
                         column: x => x.TestCaseId,
@@ -277,7 +289,7 @@ namespace TestCaseManagement.Api.Data.Migrations
                     TestSuiteId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     TestCaseId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     ModuleId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    Version = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ProductVersionId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     AddedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
                 },
                 constraints: table =>
@@ -289,16 +301,21 @@ namespace TestCaseManagement.Api.Data.Migrations
                         principalTable: "Modules",
                         principalColumn: "Id");
                     table.ForeignKey(
+                        name: "FK_TestSuiteTestCases_ProductVersions_ProductVersionId",
+                        column: x => x.ProductVersionId,
+                        principalTable: "ProductVersions",
+                        principalColumn: "Id");
+                    table.ForeignKey(
                         name: "FK_TestSuiteTestCases_TestCases_TestCaseId",
                         column: x => x.TestCaseId,
                         principalTable: "TestCases",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_TestSuiteTestCases_TestSuites_TestSuiteId",
                         column: x => x.TestSuiteId,
                         principalTable: "TestSuites",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -337,10 +354,11 @@ namespace TestCaseManagement.Api.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Modules_ProductId_Name_Version",
+                name: "IX_Modules_ProductId_Name_ProductVersionId",
                 table: "Modules",
-                columns: new[] { "ProductId", "Name", "Version" },
-                unique: true);
+                columns: new[] { "ProductId", "Name", "ProductVersionId" },
+                unique: true,
+                filter: "[ProductVersionId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Modules_ProductVersionId",
@@ -354,10 +372,21 @@ namespace TestCaseManagement.Api.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_TestCases_ModuleId_TestCaseId_Version",
+                name: "IX_TestCaseAttributes_ModuleAttributeId",
+                table: "TestCaseAttributes",
+                column: "ModuleAttributeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TestCases_ModuleId_TestCaseId_ProductVersionId",
                 table: "TestCases",
-                columns: new[] { "ModuleId", "TestCaseId", "Version" },
-                unique: true);
+                columns: new[] { "ModuleId", "TestCaseId", "ProductVersionId" },
+                unique: true,
+                filter: "[ProductVersionId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TestCases_ProductVersionId",
+                table: "TestCases",
+                column: "ProductVersionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_TestRunResults_TestCaseId",
@@ -390,6 +419,11 @@ namespace TestCaseManagement.Api.Data.Migrations
                 column: "ModuleId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_TestSuiteTestCases_ProductVersionId",
+                table: "TestSuiteTestCases",
+                column: "ProductVersionId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TestSuiteTestCases_TestCaseId",
                 table: "TestSuiteTestCases",
                 column: "TestCaseId");
@@ -413,9 +447,6 @@ namespace TestCaseManagement.Api.Data.Migrations
                 name: "ManualTestCaseSteps");
 
             migrationBuilder.DropTable(
-                name: "ModuleAttributes");
-
-            migrationBuilder.DropTable(
                 name: "TestCaseAttributes");
 
             migrationBuilder.DropTable(
@@ -429,6 +460,9 @@ namespace TestCaseManagement.Api.Data.Migrations
 
             migrationBuilder.DropTable(
                 name: "Uploads");
+
+            migrationBuilder.DropTable(
+                name: "ModuleAttributes");
 
             migrationBuilder.DropTable(
                 name: "TestRuns");

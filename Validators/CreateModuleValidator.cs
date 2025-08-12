@@ -10,9 +10,9 @@ public class CreateModuleValidator : AbstractValidator<CreateModuleRequest>
         RuleFor(x => x.ProductId)
             .NotEmpty().WithMessage("Product ID is required");
 
-        RuleFor(x => x.Version)
-            .NotEmpty().WithMessage("Version is required")
-            .MaximumLength(20).WithMessage("Version cannot exceed 20 characters");
+        RuleFor(x => x.ProductVersionId)  // Corrected property
+            .NotEmpty().WithMessage("Product version ID is required")
+            .MaximumLength(50).WithMessage("Product version ID cannot exceed 50 characters");
 
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage("Module name is required")

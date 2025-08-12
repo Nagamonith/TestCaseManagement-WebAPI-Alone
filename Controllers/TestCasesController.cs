@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using TestCaseManagement.Api.Models.DTOs.Common;
 using TestCaseManagement.Api.Models.DTOs.TestCases;
+using TestCaseManagement.Services.Implementations;
 using TestCaseManagement.Services.Interfaces;
 
 namespace TestCaseManagement.Api.Controllers;
@@ -10,10 +12,12 @@ namespace TestCaseManagement.Api.Controllers;
 public class TestCasesController : ControllerBase
 {
     private readonly ITestCaseService _testCaseService;
+    private readonly ILogger<TestSuiteService> _logger;
 
-    public TestCasesController(ITestCaseService testCaseService)
+    public TestCasesController(ITestCaseService testCaseService, ILogger<TestSuiteService> logger)
     {
         _testCaseService = testCaseService;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -48,8 +52,26 @@ public class TestCasesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string moduleId, string id)
     {
-        var success = await _testCaseService.DeleteTestCaseAsync(moduleId, id);
-        return success ? NoContent() : NotFound();
+        try
+        {
+            var success = await _testCaseService.DeleteTestCaseAsync(moduleId, id);
+            return success ? NoContent() : NotFound();
+        }
+        catch (Exception ex)
+        {
+            // Log the full exception
+            _logger.LogError(ex, "Error deleting test case {TestCaseId} in module {ModuleId}", id, moduleId);
+
+            return StatusCode(500, new
+            {
+                success = false,
+                message = ex.Message,
+                detailed = ex.InnerException?.Message,
+                stackTrace = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development"
+                    ? ex.StackTrace
+                    : null
+            });
+        }
     }
 
     [HttpGet("{testCaseId}/attributes")]

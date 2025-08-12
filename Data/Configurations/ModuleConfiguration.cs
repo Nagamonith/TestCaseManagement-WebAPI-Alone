@@ -2,50 +2,56 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using TestCaseManagement.Api.Models.Entities;
 
-namespace TestCaseManagement.Data.Configurations;
-
-public class ModuleConfiguration : IEntityTypeConfiguration<Module>
+namespace TestCaseManagement.Data.Configurations
 {
-    public void Configure(EntityTypeBuilder<Module> builder)
+    public class ModuleConfiguration : IEntityTypeConfiguration<Module>
     {
-        builder.ToTable("Modules");
+        public void Configure(EntityTypeBuilder<Module> builder)
+        {
+            builder.ToTable("Modules");
 
-        builder.HasKey(m => m.Id);
+            builder.HasKey(m => m.Id);
 
-        builder.Property(m => m.Name)
-            .IsRequired()
-            .HasMaxLength(100);
+            builder.Property(m => m.Name)
+                .IsRequired()
+                .HasMaxLength(100)
+                .IsUnicode(false);
 
-        builder.Property(m => m.Description)
-            .HasColumnType("nvarchar(max)");
+            builder.Property(m => m.Description)
+                .HasColumnType("nvarchar(max)");
 
-        builder.Property(m => m.Version)
-            .IsRequired()
-            .HasMaxLength(20);
+            builder.Property(m => m.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
 
-        builder.Property(m => m.CreatedAt)
-        .IsRequired() // Explicitly mark as required
-        .HasDefaultValueSql("GETUTCDATE()");
+            builder.Property(m => m.IsActive)
+                .HasDefaultValue(true);
 
-        builder.Property(m => m.IsActive)
-            .HasDefaultValue(true);
+            // Product relationship - ClientCascade to avoid multiple cascade paths
+            builder.HasOne(m => m.Product)
+                .WithMany(p => p.Modules)
+                .HasForeignKey(m => m.ProductId)
+                .OnDelete(DeleteBehavior.ClientCascade); // Changed here
 
-        builder.HasOne(m => m.Product)
-            .WithMany(p => p.Modules)
-            .HasForeignKey(m => m.ProductId)
-            .OnDelete(DeleteBehavior.Cascade);
+            // ProductVersion relationship - SetNull when ProductVersion deleted
+            builder.HasOne(m => m.ProductVersion)
+                .WithMany(pv => pv.Modules)
+                .HasForeignKey(m => m.ProductVersionId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
 
-        builder.HasIndex(m => new { m.ProductId, m.Name, m.Version })
-            .IsUnique();
-        // Add this to the Configure method to ensure proper string handling
-        builder.Property(m => m.Version)
-            .IsRequired()
-            .HasMaxLength(20)
-            .IsUnicode(false);  // Add this for version strings
+            // Cascade delete ModuleAttributes
+            builder.HasMany(m => m.ModuleAttributes)
+                .WithOne(ma => ma.Module)
+                .OnDelete(DeleteBehavior.Cascade);
 
-        builder.Property(m => m.Name)
-            .IsRequired()
-            .HasMaxLength(100)
-            .IsUnicode(false);
+            // Cascade delete TestCases
+            builder.HasMany(m => m.TestCases)
+                .WithOne(tc => tc.Module)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasIndex(m => new { m.ProductId, m.Name, m.ProductVersionId })
+                .IsUnique();
+        }
     }
 }

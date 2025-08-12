@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using TestCaseManagement.Api.Models.DTOs.Common;
 using TestCaseManagement.Api.Models.DTOs.Products;
 using TestCaseManagement.Api.Models.Entities;
@@ -24,7 +25,6 @@ public class ProductService : IProductService
         return _mapper.Map<IEnumerable<ProductResponse>>(products);
     }
 
-    // In ProductService.cs
     public async Task<ProductResponse?> GetProductByIdAsync(string id)
     {
         var product = await _productRepository.GetByIdAsync(id);
@@ -41,6 +41,7 @@ public class ProductService : IProductService
     {
         var product = _mapper.Map<Product>(request);
         await _productRepository.AddAsync(product);
+        await _productRepository.SaveChangesAsync();
         return new IdResponse { Id = product.Id };
     }
 
@@ -51,15 +52,21 @@ public class ProductService : IProductService
 
         _mapper.Map(request, product);
         _productRepository.Update(product);
+        await _productRepository.SaveChangesAsync();
         return true;
     }
 
     public async Task<bool> DeleteProductAsync(string id)
     {
-        var product = await _productRepository.GetByIdAsync(id);
+        var product = await _productRepository.Query()
+            .Include(p => p.Modules)  // Important for ClientCascade to work
+            .FirstOrDefaultAsync(p => p.Id == id);
+
         if (product == null) return false;
 
         _productRepository.Remove(product);
+        await _productRepository.SaveChangesAsync();
+
         return true;
     }
 }

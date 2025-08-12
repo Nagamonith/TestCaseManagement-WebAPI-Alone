@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using System.Linq;
 using TestCaseManagement.Api.Models.DTOs.Modules;
 using TestCaseManagement.Api.Models.DTOs.Products;
 using TestCaseManagement.Api.Models.DTOs.TestCases;
@@ -37,22 +38,22 @@ namespace TestCaseManagement.Api.Mappings
             CreateMap<TestSuite, TestRunTestSuiteResponse>(); // Added mapping
 
             // TestCase mappings
-            CreateMap<CreateTestCaseRequest, TestCase>();
-            CreateMap<UpdateTestCaseRequest, TestCase>();
+            CreateMap<CreateTestCaseRequest, TestCase>()
+                .ForMember(dest => dest.ProductVersionId, opt => opt.MapFrom(src => src.ProductVersionId));
+
+            CreateMap<UpdateTestCaseRequest, TestCase>()
+                .ForMember(dest => dest.ProductVersionId, opt => opt.MapFrom(src => src.ProductVersionId));
+
             CreateMap<TestCase, TestCaseResponse>()
                 .ForMember(dest => dest.Actual, opt => opt.MapFrom(src => src.Actual))
                 .ForMember(dest => dest.Remarks, opt => opt.MapFrom(src => src.Remarks));
 
             CreateMap<TestCase, TestCaseDetailResponse>()
-                .ForMember(dest => dest.Steps, opt => opt.MapFrom(src => src.ManualTestCaseSteps))
-                .ForMember(dest => dest.Expected, opt => opt.MapFrom(src =>
-                    src.ManualTestCaseSteps.Select(s => new ManualTestCaseStepRequest
-                    {
-                        Steps = string.Empty,
-                        ExpectedResult = s.ExpectedResult
-                    }).ToList()
-                ))
+                .ForMember(dest => dest.Steps, opt => opt.MapFrom(src => src.ManualTestCaseSteps.Select(s => s.Steps).ToList()))
+                .ForMember(dest => dest.Expected, opt => opt.MapFrom(src => src.ManualTestCaseSteps.Select(s => s.ExpectedResult).ToList()))
                 .ForMember(dest => dest.Attributes, opt => opt.MapFrom(src => src.TestCaseAttributes))
+                .ForMember(dest => dest.Attachments, opt => opt.MapFrom(src => src.Uploads))
+                .ForMember(dest => dest.TestSuiteIds, opt => opt.MapFrom(src => src.TestSuiteTestCases.Select(tstc => tstc.TestSuiteId).ToList()))
                 .ForMember(dest => dest.Actual, opt => opt.MapFrom(src => src.Actual))
                 .ForMember(dest => dest.Remarks, opt => opt.MapFrom(src => src.Remarks));
 

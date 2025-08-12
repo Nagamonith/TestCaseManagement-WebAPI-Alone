@@ -4,7 +4,12 @@ public class TestCase
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string ModuleId { get; set; } = string.Empty;
-    public string Version { get; set; } = string.Empty;
+
+    // Replaced string Version with FK to ProductVersion
+    public string? ProductVersionId { get; set; }
+    public ProductVersion? ProductVersion { get; set; }
+
+
     public string TestCaseId { get; set; } = string.Empty;
     public string UseCase { get; set; } = string.Empty;
     public string Scenario { get; set; } = string.Empty;
@@ -16,7 +21,7 @@ public class TestCase
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    public Module Module { get; set; } = null!;
+    public Module? Module { get; set; } // Make nullable
     public ICollection<ManualTestCaseStep> ManualTestCaseSteps { get; set; } = new List<ManualTestCaseStep>();
     public ICollection<TestCaseAttribute> TestCaseAttributes { get; set; } = new List<TestCaseAttribute>();
     public ICollection<Upload> Uploads { get; set; } = new List<Upload>();

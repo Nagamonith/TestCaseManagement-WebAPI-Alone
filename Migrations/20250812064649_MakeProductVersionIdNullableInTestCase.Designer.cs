@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TestCaseManagement.Data;
 
 #nullable disable
 
-namespace TestCaseManagement.Api.Data.Migrations
+namespace TestCaseManagement.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250812064649_MakeProductVersionIdNullableInTestCase")]
+    partial class MakeProductVersionIdNullableInTestCase
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -80,18 +83,13 @@ namespace TestCaseManagement.Api.Data.Migrations
                     b.Property<string>("ProductVersionId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Version")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(20)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("ProductVersionId");
 
-                    b.HasIndex("ProductId", "Name", "Version")
-                        .IsUnique();
+                    b.HasIndex("ProductId", "Name", "ProductVersionId")
+                        .IsUnique()
+                        .HasFilter("[ProductVersionId] IS NOT NULL");
 
                     b.ToTable("Modules", (string)null);
                 });
@@ -211,6 +209,9 @@ namespace TestCaseManagement.Api.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("ProductVersionId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("Remarks")
                         .HasColumnType("nvarchar(max)");
 
@@ -245,14 +246,13 @@ namespace TestCaseManagement.Api.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Version")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("ModuleId", "TestCaseId", "Version")
-                        .IsUnique();
+                    b.HasIndex("ProductVersionId");
+
+                    b.HasIndex("ModuleId", "TestCaseId", "ProductVersionId")
+                        .IsUnique()
+                        .HasFilter("[ProductVersionId] IS NOT NULL");
 
                     b.ToTable("TestCases");
                 });
@@ -421,6 +421,10 @@ namespace TestCaseManagement.Api.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("ProductVersionId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("TestCaseId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -429,13 +433,11 @@ namespace TestCaseManagement.Api.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Version")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("ModuleId");
+
+                    b.HasIndex("ProductVersionId");
 
                     b.HasIndex("TestCaseId");
 
@@ -503,14 +505,17 @@ namespace TestCaseManagement.Api.Data.Migrations
                     b.HasOne("TestCaseManagement.Api.Models.Entities.Product", "Product")
                         .WithMany("Modules")
                         .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.ClientCascade)
                         .IsRequired();
 
-                    b.HasOne("TestCaseManagement.Api.Models.Entities.ProductVersion", null)
+                    b.HasOne("TestCaseManagement.Api.Models.Entities.ProductVersion", "ProductVersion")
                         .WithMany("Modules")
-                        .HasForeignKey("ProductVersionId");
+                        .HasForeignKey("ProductVersionId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Product");
+
+                    b.Navigation("ProductVersion");
                 });
 
             modelBuilder.Entity("TestCaseManagement.Api.Models.Entities.ModuleAttribute", b =>
@@ -543,7 +548,14 @@ namespace TestCaseManagement.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("TestCaseManagement.Api.Models.Entities.ProductVersion", "ProductVersion")
+                        .WithMany("TestCases")
+                        .HasForeignKey("ProductVersionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Module");
+
+                    b.Navigation("ProductVersion");
                 });
 
             modelBuilder.Entity("TestCaseManagement.Api.Models.Entities.TestCaseAttribute", b =>
@@ -614,7 +626,7 @@ namespace TestCaseManagement.Api.Data.Migrations
                     b.HasOne("TestCaseManagement.Api.Models.Entities.TestSuite", "TestSuite")
                         .WithMany("TestRunTestSuites")
                         .HasForeignKey("TestSuiteId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("TestRun");
@@ -641,19 +653,27 @@ namespace TestCaseManagement.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("TestCaseManagement.Api.Models.Entities.ProductVersion", "ProductVersion")
+                        .WithMany()
+                        .HasForeignKey("ProductVersionId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
                     b.HasOne("TestCaseManagement.Api.Models.Entities.TestCase", "TestCase")
                         .WithMany("TestSuiteTestCases")
                         .HasForeignKey("TestCaseId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("TestCaseManagement.Api.Models.Entities.TestSuite", "TestSuite")
                         .WithMany("TestSuiteTestCases")
                         .HasForeignKey("TestSuiteId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Module");
+
+                    b.Navigation("ProductVersion");
 
                     b.Navigation("TestCase");
 
@@ -696,6 +716,8 @@ namespace TestCaseManagement.Api.Data.Migrations
             modelBuilder.Entity("TestCaseManagement.Api.Models.Entities.ProductVersion", b =>
                 {
                     b.Navigation("Modules");
+
+                    b.Navigation("TestCases");
                 });
 
             modelBuilder.Entity("TestCaseManagement.Api.Models.Entities.TestCase", b =>

@@ -1,5 +1,9 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using TestCaseManagement.Api.Models.DTOs.Common;
 using TestCaseManagement.Api.Models.DTOs.TestCases;
 using TestCaseManagement.Api.Models.Entities;
@@ -15,6 +19,7 @@ namespace TestCaseManagement.Services.Implementations
         private readonly IGenericRepository<Module> _moduleRepository;
         private readonly IGenericRepository<ModuleAttribute> _moduleAttributeRepository;
         private readonly IGenericRepository<TestCaseAttribute> _testCaseAttributeRepository;
+        private readonly IGenericRepository<TestSuiteTestCase> _testSuiteTestCaseRepository;
         private readonly AppDbContext _dbContext;
         private readonly IMapper _mapper;
 
@@ -23,6 +28,7 @@ namespace TestCaseManagement.Services.Implementations
             IGenericRepository<Module> moduleRepository,
             IGenericRepository<ModuleAttribute> moduleAttributeRepository,
             IGenericRepository<TestCaseAttribute> testCaseAttributeRepository,
+            IGenericRepository<TestSuiteTestCase> testSuiteTestCaseRepository,
             AppDbContext dbContext,
             IMapper mapper)
         {
@@ -30,6 +36,7 @@ namespace TestCaseManagement.Services.Implementations
             _moduleRepository = moduleRepository;
             _moduleAttributeRepository = moduleAttributeRepository;
             _testCaseAttributeRepository = testCaseAttributeRepository;
+            _testSuiteTestCaseRepository = testSuiteTestCaseRepository;
             _dbContext = dbContext;
             _mapper = mapper;
         }
@@ -68,6 +75,9 @@ namespace TestCaseManagement.Services.Implementations
 
             var testCase = _mapper.Map<TestCase>(request);
 
+            // Map ProductVersionId explicitly if not handled by AutoMapper
+            testCase.ProductVersionId = request.ProductVersionId;
+
             testCase.ManualTestCaseSteps = new List<ManualTestCaseStep>();
             testCase.TestCaseAttributes = new List<TestCaseAttribute>();
 
@@ -82,6 +92,7 @@ namespace TestCaseManagement.Services.Implementations
             }
 
             await _testCaseRepository.AddAsync(testCase);
+            await _dbContext.SaveChangesAsync();
             return new IdResponse { Id = testCase.Id };
         }
 
@@ -91,18 +102,66 @@ namespace TestCaseManagement.Services.Implementations
             if (testCase == null) return false;
 
             _mapper.Map(request, testCase);
+
+            // Explicitly update ProductVersionId if not mapped by AutoMapper
+            testCase.ProductVersionId = request.ProductVersionId;
+
             testCase.UpdatedAt = DateTime.UtcNow;
             _testCaseRepository.Update(testCase);
+            await _dbContext.SaveChangesAsync();
             return true;
         }
 
         public async Task<bool> DeleteTestCaseAsync(string moduleId, string id)
         {
-            var testCase = (await _testCaseRepository.FindAsync(tc => tc.ModuleId == moduleId && tc.Id == id)).FirstOrDefault();
-            if (testCase == null) return false;
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-            _testCaseRepository.Remove(testCase);
-            return true;
+            try
+            {
+                var testCase = await _dbContext.TestCases
+                    .AsTracking()
+                    .FirstOrDefaultAsync(tc => tc.ModuleId == moduleId && tc.Id == id);
+
+                if (testCase == null) return false;
+
+                // Delete related entities manually to avoid FK constraint errors
+
+                var runResults = await _dbContext.TestRunResults
+                    .Where(r => r.TestCaseId == id)
+                    .ToListAsync();
+                if (runResults.Any()) _dbContext.TestRunResults.RemoveRange(runResults);
+
+                var suiteLinks = await _dbContext.TestSuiteTestCases
+                    .Where(s => s.TestCaseId == id)
+                    .ToListAsync();
+                if (suiteLinks.Any()) _dbContext.TestSuiteTestCases.RemoveRange(suiteLinks);
+
+                var steps = await _dbContext.ManualTestCaseSteps
+                    .Where(s => s.TestCaseId == id)
+                    .ToListAsync();
+                if (steps.Any()) _dbContext.ManualTestCaseSteps.RemoveRange(steps);
+
+                var attrs = await _dbContext.TestCaseAttributes
+                    .Where(a => a.TestCaseId == id)
+                    .ToListAsync();
+                if (attrs.Any()) _dbContext.TestCaseAttributes.RemoveRange(attrs);
+
+                var uploads = await _dbContext.Uploads
+                    .Where(u => u.TestCaseId == id)
+                    .ToListAsync();
+                if (uploads.Any()) _dbContext.Uploads.RemoveRange(uploads);
+
+                _dbContext.TestCases.Remove(testCase);
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<IEnumerable<TestCaseAttributeResponse>> GetTestCaseAttributesAsync(string moduleId, string testCaseId)
@@ -129,7 +188,7 @@ namespace TestCaseManagement.Services.Implementations
 
         public async Task<bool> UpdateTestCaseAttributesAsync(string moduleId, string testCaseId, IEnumerable<TestCaseAttributeRequest> attributes)
         {
-            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
             try
             {

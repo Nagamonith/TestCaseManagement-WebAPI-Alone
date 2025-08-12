@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using TestCaseManagement.Api.Extensions;
 using TestCaseManagement.Api.Middleware;
 using TestCaseManagement.Api.Utilities;
@@ -18,7 +19,22 @@ builder.Services
 // Register DbInitializer
 builder.Services.AddTransient<DbInitializer>();
 
-builder.Services.AddControllers();
+// In Program.cs
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.SuppressModelStateInvalidFilter = true;
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            return new BadRequestObjectResult(new
+            {
+                success = false,
+                message = "Validation failed",
+                errors = context.ModelState.Values.SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+            });
+        };
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

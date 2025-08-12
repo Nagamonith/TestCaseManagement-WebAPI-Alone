@@ -70,7 +70,7 @@ public class ModulesController : ControllerBase
     {
         try
         {
-            // Add explicit validation
+            // Validate productId format
             if (!Guid.TryParse(productId, out _))
             {
                 return BadRequest(new { success = false, message = "Invalid Product ID format" });
@@ -90,7 +90,22 @@ public class ModulesController : ControllerBase
                 details = ex.InnerException?.Message
             });
         }
-        // Keep existing catch blocks
+        catch (KeyNotFoundException ex)
+        {
+            // e.g. product not found or no versions found
+            _logger.LogWarning(ex, "Create module failed validation");
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating module for product {ProductId}", productId);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while creating module",
+                details = ex.Message
+            });
+        }
     }
 
     [HttpPut("{id}")]
@@ -101,6 +116,11 @@ public class ModulesController : ControllerBase
             request.ProductId = productId;
             var success = await _moduleService.UpdateModuleAsync(id, request);
             return success ? NoContent() : NotFound();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Update module validation error for {ModuleId}", id);
+            return NotFound(new { success = false, message = ex.Message });
         }
         catch (Exception ex)
         {
