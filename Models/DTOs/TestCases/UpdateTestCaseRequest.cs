@@ -15,6 +15,9 @@ namespace TestCaseManagement.Api.Models.DTOs.TestCases
         public string? Actual { get; set; }
         public string? Remarks { get; set; }
         public List<ManualTestCaseStepRequest>? Steps { get; set; }
+
+        // NEW property to include attributes
+        public List<TestCaseAttributeRequest>? Attributes { get; set; }
     }
 
     public class UpdateTestCaseRequestValidator : AbstractValidator<UpdateTestCaseRequest>
@@ -44,6 +47,21 @@ namespace TestCaseManagement.Api.Models.DTOs.TestCases
                     step.RuleFor(s => s.ExpectedResult)
                         .NotEmpty()
                         .WithMessage("Expected result is required");
+                });
+            });
+
+            // NEW validation for attributes
+            When(x => x.Attributes != null, () =>
+            {
+                RuleForEach(x => x.Attributes).ChildRules(attr =>
+                {
+                    attr.RuleFor(a => a.Key)
+                        .NotEmpty()
+                        .WithMessage("Attribute key is required");
+
+                    attr.RuleFor(a => a.Value)
+                        .NotEmpty()
+                        .WithMessage("Attribute value is required");
                 });
             });
         }

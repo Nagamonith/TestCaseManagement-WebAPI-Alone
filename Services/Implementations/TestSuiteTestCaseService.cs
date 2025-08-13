@@ -34,28 +34,23 @@ namespace TestCaseManagement.Services.Implementations
 
         public async Task<TestSuiteWithCasesResponse> GetAllTestCasesAsync(string testSuiteId)
         {
-            // Get test cases directly from the repository since we don't have testSuiteRepository
-            var testCases = await _repository.FindAsync(
-                t => t.TestSuiteId == testSuiteId,
-                q => q.Include(t => t.TestCase)
-                      .Include(t => t.TestSuite));
+            // Query the TestSuite including related TestCases
+            var context = _repository.GetDbContext();
+            var testSuite = await context.Set<TestSuite>()
+                .Include(ts => ts.TestSuiteTestCases)
+                    .ThenInclude(tstc => tstc.TestCase)
+                .FirstOrDefaultAsync(ts => ts.Id == testSuiteId);
 
-            if (!testCases.Any())
-            {
-                _logger.LogWarning("No test cases found for suite: {TestSuiteId}", testSuiteId);
-                throw new KeyNotFoundException("No test cases found for this test suite");
-            }
-
-            // Get test suite from the first test case (assuming all belong to same suite)
-            var testSuite = testCases.First().TestSuite;
             if (testSuite == null)
             {
-                _logger.LogError("Test suite not found in relationships for: {TestSuiteId}", testSuiteId);
+                _logger.LogWarning("Test suite not found: {TestSuiteId}", testSuiteId);
                 throw new KeyNotFoundException("Test suite not found");
             }
 
             var response = _mapper.Map<TestSuiteWithCasesResponse>(testSuite);
-            response.TestCases = _mapper.Map<List<TestCaseResponse>>(testCases.Select(t => t.TestCase));
+            response.TestCases = _mapper.Map<List<TestCaseResponse>>(
+                testSuite.TestSuiteTestCases.Select(t => t.TestCase).Where(tc => tc != null)
+            );
 
             _logger.LogInformation("Retrieved {Count} test cases for suite {TestSuiteId}", response.TestCases.Count, testSuiteId);
             return response;
@@ -64,9 +59,8 @@ namespace TestCaseManagement.Services.Implementations
         public async Task AssignTestCasesAsync(string testSuiteId, AssignTestCasesRequest request)
         {
             _logger.LogInformation("Starting test case assignment for suite {TestSuiteId} with {Count} test cases",
-                testSuiteId, request.TestCaseIds.Count);
+                testSuiteId, request.TestCaseIds?.Count ?? 0);
 
-            // Validate all test case IDs and filter out null/empty ones
             var validTestCaseIds = request.TestCaseIds?
                 .Where(id => !string.IsNullOrWhiteSpace(id))
                 .Distinct()
@@ -78,9 +72,6 @@ namespace TestCaseManagement.Services.Implementations
                 return;
             }
 
-            _logger.LogInformation("Processing {Count} valid test case IDs", validTestCaseIds.Count);
-
-            // Get existing assignments to avoid duplicates
             var existingTestCases = await _repository.FindAsync(t => t.TestSuiteId == testSuiteId);
             var existingTestCaseIds = existingTestCases.Select(t => t.TestCaseId).ToHashSet();
 
@@ -94,36 +85,36 @@ namespace TestCaseManagement.Services.Implementations
 
             _logger.LogInformation("Adding {Count} new test case assignments", newTestCaseIds.Count);
 
-            // Process each new test case ID
             var assignmentsCreated = 0;
             foreach (var testCaseId in newTestCaseIds)
             {
                 try
                 {
-                    // Verify test case exists including its Version property
-                    var testCase = await _testCaseRepository.FindAsync(tc => tc.Id == testCaseId);
-                    var singleTestCase = testCase.FirstOrDefault();
+                    // Fetch full TestCase to get ModuleId & ProductVersionId
+                    var singleTestCase = (await _testCaseRepository
+                        .FindAsync(tc => tc.Id == testCaseId))
+                        .FirstOrDefault();
+
                     if (singleTestCase == null)
                     {
                         _logger.LogWarning("Test case not found, skipping: {TestCaseId}", testCaseId);
                         continue;
                     }
 
-                    // Create the assignment
                     var testSuiteTestCase = new TestSuiteTestCase
                     {
-                        // Let the database generate the ID (assuming it's configured as identity)
                         TestSuiteId = testSuiteId,
                         TestCaseId = testCaseId,
                         ModuleId = singleTestCase.ModuleId,
+                        ProductVersionId = singleTestCase.ProductVersionId, // ? Auto-set
                         AddedAt = DateTime.UtcNow
                     };
 
                     await _repository.AddAsync(testSuiteTestCase);
                     assignmentsCreated++;
 
-                    _logger.LogDebug("Created assignment: Suite={TestSuiteId}, TestCase={TestCaseId}",
-                        testSuiteId, testCaseId);
+                    _logger.LogDebug("Created assignment: Suite={TestSuiteId}, TestCase={TestCaseId}, ProductVersionId={ProductVersionId}",
+                        testSuiteId, testCaseId, testSuiteTestCase.ProductVersionId);
                 }
                 catch (Exception ex)
                 {
@@ -147,6 +138,7 @@ namespace TestCaseManagement.Services.Implementations
                 }
             }
         }
+
 
         public async Task<bool> RemoveTestCaseAsync(string testSuiteId, string testCaseId)
         {

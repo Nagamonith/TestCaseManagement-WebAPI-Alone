@@ -98,64 +98,108 @@ namespace TestCaseManagement.Services.Implementations
 
         public async Task<bool> UpdateTestCaseAsync(string moduleId, string id, UpdateTestCaseRequest request)
         {
-            var testCase = (await _testCaseRepository.FindAsync(tc => tc.ModuleId == moduleId && tc.Id == id,
-                include: q => q.Include(tc => tc.ManualTestCaseSteps))).FirstOrDefault();
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-            if (testCase == null) return false;
-
-            // Map basic fields
-            _mapper.Map(request, testCase);
-
-            // Explicitly update ProductVersionId if not mapped by AutoMapper
-            testCase.ProductVersionId = request.ProductVersionId;
-
-            testCase.UpdatedAt = DateTime.UtcNow;
-
-            // === Handle Steps update ===
-            if (request.Steps != null)
+            try
             {
-                // Existing steps in DB
-                var existingSteps = testCase.ManualTestCaseSteps.ToList();
+                var testCase = (await _testCaseRepository.FindAsync(tc => tc.ModuleId == moduleId && tc.Id == id,
+                    include: q => q.Include(tc => tc.ManualTestCaseSteps)
+                                   .Include(tc => tc.TestCaseAttributes))).FirstOrDefault();
 
-                // Update or add steps from request
-                foreach (var stepReq in request.Steps)
+                if (testCase == null) return false;
+
+                // Map basic fields
+                _mapper.Map(request, testCase);
+
+                // Explicitly update ProductVersionId if not mapped by AutoMapper
+                testCase.ProductVersionId = request.ProductVersionId;
+
+                testCase.UpdatedAt = DateTime.UtcNow;
+
+                // === Handle Steps update ===
+                if (request.Steps != null)
                 {
-                    if (stepReq.Id.HasValue)
+                    var existingSteps = testCase.ManualTestCaseSteps.ToList();
+
+                    foreach (var stepReq in request.Steps)
                     {
-                        // Update existing step
-                        var existingStep = existingSteps.FirstOrDefault(s => s.Id == stepReq.Id.Value);
-                        if (existingStep != null)
+                        if (stepReq.Id.HasValue)
                         {
-                            existingStep.Steps = stepReq.Steps;
-                            existingStep.ExpectedResult = stepReq.ExpectedResult;
+                            var existingStep = existingSteps.FirstOrDefault(s => s.Id == stepReq.Id.Value);
+                            if (existingStep != null)
+                            {
+                                existingStep.Steps = stepReq.Steps;
+                                existingStep.ExpectedResult = stepReq.ExpectedResult;
+                            }
+                        }
+                        else
+                        {
+                            var newStep = new ManualTestCaseStep
+                            {
+                                Steps = stepReq.Steps,
+                                ExpectedResult = stepReq.ExpectedResult,
+                                TestCaseId = testCase.Id
+                            };
+                            testCase.ManualTestCaseSteps.Add(newStep);
                         }
                     }
-                    else
+
+                    var stepIdsInRequest = request.Steps.Where(s => s.Id.HasValue).Select(s => s.Id.Value).ToHashSet();
+                    var stepsToRemove = existingSteps.Where(s => !stepIdsInRequest.Contains(s.Id)).ToList();
+
+                    foreach (var stepToRemove in stepsToRemove)
                     {
-                        // Add new step
-                        var newStep = new ManualTestCaseStep
-                        {
-                            Steps = stepReq.Steps,
-                            ExpectedResult = stepReq.ExpectedResult,
-                            TestCaseId = testCase.Id
-                        };
-                        testCase.ManualTestCaseSteps.Add(newStep);
+                        _dbContext.ManualTestCaseSteps.Remove(stepToRemove);
                     }
                 }
 
-                // Remove steps not in the incoming request (deleted by user)
-                var stepIdsInRequest = request.Steps.Where(s => s.Id.HasValue).Select(s => s.Id.Value).ToHashSet();
-                var stepsToRemove = existingSteps.Where(s => !stepIdsInRequest.Contains(s.Id)).ToList();
-
-                foreach (var stepToRemove in stepsToRemove)
+                // === Handle Attributes update ===
+                if (request.Attributes != null)
                 {
-                    _dbContext.ManualTestCaseSteps.Remove(stepToRemove);
-                }
-            }
+                    var moduleAttributes = await _moduleAttributeRepository
+                        .FindAsync(ma => ma.ModuleId == moduleId);
 
-            _testCaseRepository.Update(testCase);
-            await _dbContext.SaveChangesAsync();
-            return true;
+                    var existingAttributes = testCase.TestCaseAttributes.ToList();
+
+                    foreach (var attrRequest in request.Attributes)
+                    {
+                        var moduleAttr = moduleAttributes.FirstOrDefault(ma => ma.Key == attrRequest.Key);
+                        if (moduleAttr == null) continue;
+
+                        var existingAttr = existingAttributes.FirstOrDefault(ta =>
+                            ta.ModuleAttributeId == moduleAttr.Id);
+
+                        if (existingAttr != null)
+                        {
+                            existingAttr.Value = attrRequest.Value;
+                            _testCaseAttributeRepository.Update(existingAttr);
+                        }
+                        else
+                        {
+                            var newAttr = new TestCaseAttribute
+                            {
+                                TestCaseId = testCase.Id,
+                                ModuleAttributeId = moduleAttr.Id,
+                                Value = attrRequest.Value
+                            };
+                            await _testCaseAttributeRepository.AddAsync(newAttr);
+                        }
+                    }
+
+                    // Optional: Remove attributes not in the request if needed (not currently implemented)
+                }
+
+                _testCaseRepository.Update(testCase);
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<bool> DeleteTestCaseAsync(string moduleId, string id)
@@ -282,6 +326,89 @@ namespace TestCaseManagement.Services.Implementations
                 await transaction.RollbackAsync();
                 throw;
             }
+        }
+
+        // --- New methods for single attribute operations ---
+
+        public async Task AddTestCaseAttributeAsync(string moduleId, string testCaseId, TestCaseAttributeRequest request)
+        {
+            var testCase = await _testCaseRepository.GetByIdAsync(testCaseId);
+            if (testCase == null || testCase.ModuleId != moduleId)
+                throw new KeyNotFoundException("Test case not found");
+
+            var moduleAttribute = (await _moduleAttributeRepository.FindAsync(ma => ma.ModuleId == moduleId && ma.Key.ToLower() == request.Key.ToLower()))
+                                  .FirstOrDefault();
+            if (moduleAttribute == null)
+                throw new KeyNotFoundException($"Module attribute with key '{request.Key}' not found");
+
+            var existingAttr = (await _testCaseAttributeRepository.FindAsync(ta => ta.TestCaseId == testCaseId && ta.ModuleAttributeId == moduleAttribute.Id)).FirstOrDefault();
+            if (existingAttr != null)
+                throw new InvalidOperationException("Attribute already exists. Use update instead.");
+
+            var newAttr = new TestCaseAttribute
+            {
+                TestCaseId = testCaseId,
+                ModuleAttributeId = moduleAttribute.Id,
+                Value = request.Value
+            };
+
+            await _testCaseAttributeRepository.AddAsync(newAttr);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task<bool> UpdateTestCaseAttributeAsync(string moduleId, string testCaseId, string key, TestCaseAttributeRequest request)
+        {
+            var testCase = await _testCaseRepository.GetByIdAsync(testCaseId);
+            if (testCase == null || testCase.ModuleId != moduleId)
+                return false;
+
+            var attribute = (await _testCaseAttributeRepository.FindAsync(
+                ta => ta.TestCaseId == testCaseId,
+                include: q => q.Include(ta => ta.ModuleAttribute)))
+                .FirstOrDefault(ta => string.Equals(ta.ModuleAttribute.Key, key, StringComparison.OrdinalIgnoreCase));
+
+            if (attribute == null)
+                return false;
+
+            if (!string.Equals(key, request.Key, StringComparison.OrdinalIgnoreCase))
+            {
+                var newModuleAttribute = (await _moduleAttributeRepository
+                    .FindAsync(ma => ma.ModuleId == moduleId && ma.Key.ToLower() == request.Key.ToLower()))
+                    .FirstOrDefault();
+
+                if (newModuleAttribute == null)
+                    throw new KeyNotFoundException($"Module attribute with key '{request.Key}' not found");
+
+                attribute.ModuleAttributeId = newModuleAttribute.Id;
+            }
+
+            attribute.Value = request.Value;
+            _testCaseAttributeRepository.Update(attribute);
+            await _dbContext.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task<bool> DeleteTestCaseAttributeAsync(string moduleId, string testCaseId, string key)
+        {
+            var testCase = await _testCaseRepository.GetByIdAsync(testCaseId);
+            if (testCase == null || testCase.ModuleId != moduleId)
+                return false;
+
+            var attribute = (await _testCaseAttributeRepository.FindAsync(
+                ta => ta.TestCaseId == testCaseId,
+                include: q => q.Include(ta => ta.ModuleAttribute)))
+                .FirstOrDefault(ta => string.Equals(ta.ModuleAttribute.Key, key, StringComparison.OrdinalIgnoreCase));
+
+            if (attribute == null)
+                return false;
+
+            // Instead of deleting record, clear the value
+            attribute.Value = string.Empty;
+            _testCaseAttributeRepository.Update(attribute);
+            await _dbContext.SaveChangesAsync();
+
+            return true;
         }
     }
 }

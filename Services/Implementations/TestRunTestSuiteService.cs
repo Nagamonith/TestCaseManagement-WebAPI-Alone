@@ -61,6 +61,9 @@ namespace TestCaseManagement.Services.Implementations
                     TestSuiteId = id
                 });
             }
+
+            // Commit changes to DB
+            await _repository.SaveChangesAsync();
         }
 
         public async Task<bool> UpdateTestSuiteAsync(string testRunId, string testSuiteId, UpdateTestSuiteRequest request)
@@ -86,6 +89,9 @@ namespace TestCaseManagement.Services.Implementations
                 TestSuiteId = request.NewTestSuiteId
             });
 
+            // Commit changes to DB
+            await _repository.SaveChangesAsync();
+
             return true;
         }
 
@@ -97,6 +103,10 @@ namespace TestCaseManagement.Services.Implementations
             if (existing == null) return false;
 
             _repository.Remove(existing);
+
+            // Commit changes to DB
+            await _repository.SaveChangesAsync();
+
             return true;
         }
     }

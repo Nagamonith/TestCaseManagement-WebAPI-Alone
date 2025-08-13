@@ -44,8 +44,20 @@ public class TestCasesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string moduleId, string id, [FromBody] UpdateTestCaseRequest request)
     {
-        var success = await _testCaseService.UpdateTestCaseAsync(moduleId, id, request);
-        return success ? NoContent() : NotFound();
+        // Update test case info and steps
+        var testCaseUpdated = await _testCaseService.UpdateTestCaseAsync(moduleId, id, request);
+        if (!testCaseUpdated)
+            return NotFound();
+
+        // Update attributes if provided
+        if (request.Attributes != null)
+        {
+            var attributesUpdated = await _testCaseService.UpdateTestCaseAttributesAsync(moduleId, id, request.Attributes);
+            if (!attributesUpdated)
+                return NotFound();
+        }
+
+        return NoContent();
     }
 
     [HttpDelete("{id}")]
@@ -84,6 +96,39 @@ public class TestCasesController : ControllerBase
         [FromBody] IEnumerable<TestCaseAttributeRequest> attributes)
     {
         var success = await _testCaseService.UpdateTestCaseAttributesAsync(moduleId, testCaseId, attributes);
+        return success ? NoContent() : NotFound();
+    }
+
+    // Merged Attribute endpoints from TestCaseAttributesController
+
+    // Create a single attribute
+    [HttpPost("{testCaseId}/attributes")]
+    public async Task<IActionResult> CreateAttribute(string moduleId, string testCaseId, [FromBody] TestCaseAttributeRequest request)
+    {
+        try
+        {
+            await _testCaseService.AddTestCaseAttributeAsync(moduleId, testCaseId, request);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    // Update a single attribute by key
+    [HttpPut("{testCaseId}/attributes/{key}")]
+    public async Task<IActionResult> UpdateAttribute(string moduleId, string testCaseId, string key, [FromBody] TestCaseAttributeRequest request)
+    {
+        var success = await _testCaseService.UpdateTestCaseAttributeAsync(moduleId, testCaseId, key, request);
+        return success ? NoContent() : NotFound();
+    }
+
+    // Delete (clear) a single attribute by key
+    [HttpDelete("{testCaseId}/attributes/{key}")]
+    public async Task<IActionResult> DeleteAttribute(string moduleId, string testCaseId, string key)
+    {
+        var success = await _testCaseService.DeleteTestCaseAttributeAsync(moduleId, testCaseId, key);
         return success ? NoContent() : NotFound();
     }
 }

@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TestCaseManagement.Api.Models.DTOs.Common;
 using TestCaseManagement.Api.Models.DTOs.TestSuites;
-using TestCaseManagement.Services.Implementations;
 using TestCaseManagement.Services.Interfaces;
 
 namespace TestCaseManagement.Api.Controllers;
@@ -12,9 +11,9 @@ namespace TestCaseManagement.Api.Controllers;
 public class TestSuitesController : ControllerBase
 {
     private readonly ITestSuiteService _testSuiteService;
-    private readonly ILogger<TestSuiteService> _logger;
+    private readonly ILogger<TestSuitesController> _logger;
 
-    public TestSuitesController(ITestSuiteService testSuiteService, ILogger<TestSuiteService> logger)
+    public TestSuitesController(ITestSuiteService testSuiteService, ILogger<TestSuitesController> logger)
     {
         _testSuiteService = testSuiteService;
         _logger = logger;
@@ -44,14 +43,48 @@ public class TestSuitesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string productId, string id, [FromBody] CreateTestSuiteRequest request)
     {
-        var success = await _testSuiteService.UpdateTestSuiteAsync(productId, id, request);
-        return success ? NoContent() : NotFound();
+        try
+        {
+            if (string.IsNullOrWhiteSpace(productId) || string.IsNullOrWhiteSpace(id))
+            {
+                return BadRequest("Product ID and Test Suite ID are required.");
+            }
+
+            if (request == null)
+            {
+                return BadRequest("Request body is required.");
+            }
+
+            _logger.LogInformation("Updating test suite {TestSuiteId} for product {ProductId}", id, productId);
+
+            var success = await _testSuiteService.UpdateTestSuiteAsync(productId, id, request);
+
+            if (!success)
+            {
+                _logger.LogWarning("Test suite not found: {TestSuiteId}", id);
+                return NotFound($"Test suite with ID {id} not found.");
+            }
+
+            _logger.LogInformation("Successfully updated test suite {TestSuiteId}", id);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Invalid operation while updating test suite {TestSuiteId}", id);
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating test suite {TestSuiteId}", id);
+            return StatusCode(500, "Internal server error occurred while updating test suite.");
+        }
     }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(
-    string productId,
-    string id,
-    [FromQuery] bool forceDelete = false)
+        string productId,
+        string id,
+        [FromQuery] bool forceDelete = false)
     {
         try
         {
