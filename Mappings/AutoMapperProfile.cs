@@ -69,7 +69,10 @@ namespace TestCaseManagement.Api.Mappings
                 .ForMember(dest => dest.IsRequired, opt => opt.MapFrom(src => src.ModuleAttribute.IsRequired));
 
             // Upload mappings
-            CreateMap<Upload, UploadResponse>();
+            CreateMap<Upload, UploadResponse>()
+                .ForMember(dest => dest.TestCaseId, opt => opt.MapFrom(src => src.TestCaseId))
+                .ForMember(dest => dest.UploadedBy, opt => opt.MapFrom(src => src.UploadedBy))
+                .ForMember(dest => dest.FilePath, opt => opt.MapFrom(src => src.FilePath));
 
             // TestRun mappings
             CreateMap<CreateTestRunRequest, TestRun>();

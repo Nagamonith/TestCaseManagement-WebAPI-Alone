@@ -29,9 +29,10 @@ public class UploadConfiguration : IEntityTypeConfiguration<Upload>
             .IsRequired()
             .HasMaxLength(100);
 
+        // Nullable foreign key relationship
         builder.HasOne(u => u.TestCase)
             .WithMany(t => t.Uploads)
             .HasForeignKey(u => u.TestCaseId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

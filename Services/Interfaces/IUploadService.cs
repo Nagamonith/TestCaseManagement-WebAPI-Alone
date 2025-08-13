@@ -1,10 +1,13 @@
 using TestCaseManagement.Api.Models.DTOs.Uploads;
 
-namespace TestCaseManagement.Services.Interfaces;
-
-public interface IUploadService
+namespace TestCaseManagement.Services.Interfaces
 {
-    Task<UploadResponse> UploadFileAsync(UploadFileRequest request);
-    Task<(Stream, string, string)> DownloadFileAsync(string id);
-    Task<bool> DeleteFileAsync(string id);
+    public interface IUploadService
+    {
+        Task<UploadResponse> UploadFileAsync(UploadFileRequest request);
+        Task<(Stream fileStream, string fileName, string contentType)> DownloadFileAsync(string id);
+        Task<bool> DeleteFileAsync(string id);
+
+        Task<UploadResponse> UploadFileFromBase64Async(UploadBase64FileRequest request);
+    }
 }

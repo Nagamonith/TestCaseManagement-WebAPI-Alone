@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 using TestCaseManagement.Api.Models.Entities;
 
@@ -29,6 +29,13 @@ namespace TestCaseManagement.Data
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+            // Configure nullable relationship: Upload → TestCase
+            modelBuilder.Entity<Upload>()
+                .HasOne(u => u.TestCase)
+                .WithMany(tc => tc.Uploads)
+                .HasForeignKey(u => u.TestCaseId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }
