@@ -43,35 +43,19 @@ public class TestSuitesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string productId, string id, [FromBody] CreateTestSuiteRequest request)
     {
+        if (string.IsNullOrWhiteSpace(productId) || string.IsNullOrWhiteSpace(id))
+            return BadRequest("Product ID and Test Suite ID are required.");
+
+        if (request == null)
+            return BadRequest("Request body is required.");
+
         try
         {
-            if (string.IsNullOrWhiteSpace(productId) || string.IsNullOrWhiteSpace(id))
-            {
-                return BadRequest("Product ID and Test Suite ID are required.");
-            }
-
-            if (request == null)
-            {
-                return BadRequest("Request body is required.");
-            }
-
-            _logger.LogInformation("Updating test suite {TestSuiteId} for product {ProductId}", id, productId);
-
             var success = await _testSuiteService.UpdateTestSuiteAsync(productId, id, request);
-
             if (!success)
-            {
-                _logger.LogWarning("Test suite not found: {TestSuiteId}", id);
                 return NotFound($"Test suite with ID {id} not found.");
-            }
 
-            _logger.LogInformation("Successfully updated test suite {TestSuiteId}", id);
             return NoContent();
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Invalid operation while updating test suite {TestSuiteId}", id);
-            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
@@ -88,13 +72,10 @@ public class TestSuitesController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Attempting to delete test suite {TestSuiteId} for product {ProductId}", id, productId);
-
             var success = await _testSuiteService.DeleteTestSuiteAsync(productId, id, forceDelete);
 
             if (!success)
             {
-                _logger.LogWarning("Test suite not found: {TestSuiteId}", id);
                 return NotFound(new ProblemDetails
                 {
                     Title = "Test Suite Not Found",
@@ -103,12 +84,10 @@ public class TestSuitesController : ControllerBase
                 });
             }
 
-            _logger.LogInformation("Successfully deleted test suite {TestSuiteId}", id);
             return NoContent();
         }
         catch (BadHttpRequestException ex)
         {
-            _logger.LogWarning(ex, "Conflict deleting test suite {TestSuiteId}", id);
             return Conflict(new ProblemDetails
             {
                 Title = "Cannot Delete Test Suite",

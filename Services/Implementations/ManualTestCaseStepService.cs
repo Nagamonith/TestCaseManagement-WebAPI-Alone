@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using TestCaseManagement.Api.Models.DTOs.TestCases;
 using TestCaseManagement.Api.Models.Entities;
 using TestCaseManagement.Repositories.Interfaces;
@@ -37,7 +37,9 @@ public class ManualTestCaseStepService : IManualTestCaseStepService
         step.TestCaseId = testCaseId;
 
         await _stepRepository.AddAsync(step);
+        await _stepRepository.SaveChangesAsync(); // ✅ Persist to DB
     }
+
     public async Task<bool> UpdateStepAsync(string testCaseId, int stepId, ManualTestCaseStepRequest request)
     {
         var step = (await _stepRepository.FindAsync(s => s.TestCaseId == testCaseId && s.Id == stepId)).FirstOrDefault();
@@ -58,6 +60,8 @@ public class ManualTestCaseStepService : IManualTestCaseStepService
         if (step == null) return false;
 
         _stepRepository.Remove(step);
+        await _stepRepository.SaveChangesAsync(); // ✅ Persist removal
         return true;
     }
+
 }

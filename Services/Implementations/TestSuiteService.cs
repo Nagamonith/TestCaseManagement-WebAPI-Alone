@@ -18,17 +18,20 @@ namespace TestCaseManagement.Services.Implementations
     {
         private readonly IGenericRepository<TestSuite> _testSuiteRepository;
         private readonly IGenericRepository<Product> _productRepository;
+        private readonly ITestSuiteTestCaseService _testSuiteTestCaseService;
         private readonly IMapper _mapper;
         private readonly ILogger<TestSuiteService> _logger;
 
         public TestSuiteService(
             IGenericRepository<TestSuite> testSuiteRepository,
             IGenericRepository<Product> productRepository,
+            ITestSuiteTestCaseService testSuiteTestCaseService,
             IMapper mapper,
             ILogger<TestSuiteService> logger)
         {
             _testSuiteRepository = testSuiteRepository;
             _productRepository = productRepository;
+            _testSuiteTestCaseService = testSuiteTestCaseService;
             _mapper = mapper;
             _logger = logger;
         }
@@ -111,17 +114,8 @@ namespace TestCaseManagement.Services.Implementations
 
                 if (forceDelete)
                 {
-                    var context = _testSuiteRepository.GetDbContext();
-
-                    var testSuiteTestCases = await context.Set<TestSuiteTestCase>()
-                        .Where(t => t.TestSuiteId == id)
-                        .ToListAsync();
-                    context.RemoveRange(testSuiteTestCases);
-
-                    var testRunTestSuites = await context.Set<TestRunTestSuite>()
-                        .Where(t => t.TestSuiteId == id)
-                        .ToListAsync();
-                    context.RemoveRange(testRunTestSuites);
+                    // Remove all test case assignments
+                    await _testSuiteTestCaseService.RemoveAllAssignmentsAsync(id);
                 }
 
                 _testSuiteRepository.Remove(testSuite);

@@ -27,9 +27,7 @@ public class TestSuiteTestCasesController : ControllerBase
             _logger.LogInformation("Getting test cases for suite {TestSuiteId}", testSuiteId);
 
             if (string.IsNullOrWhiteSpace(testSuiteId))
-            {
                 return BadRequest("Test suite ID is required");
-            }
 
             var result = await _service.GetAllTestCasesAsync(testSuiteId);
             return Ok(result);
@@ -53,25 +51,11 @@ public class TestSuiteTestCasesController : ControllerBase
         {
             _logger.LogInformation("Assigning test cases to suite {TestSuiteId}", testSuiteId);
 
-            // Validation
             if (string.IsNullOrWhiteSpace(testSuiteId))
-            {
                 return BadRequest("Test suite ID is required");
-            }
 
-            if (request == null)
-            {
-                return BadRequest("Request body is required");
-            }
-
-            if (request.TestCaseIds == null || !request.TestCaseIds.Any())
-            {
+            if (request == null || request.TestCaseIds == null || !request.TestCaseIds.Any())
                 return BadRequest("At least one test case ID is required");
-            }
-
-            // Log the request details
-            _logger.LogDebug("Assigning {Count} test cases to suite {TestSuiteId}: {TestCaseIds}",
-                request.TestCaseIds.Count, testSuiteId, string.Join(", ", request.TestCaseIds));
 
             await _service.AssignTestCasesAsync(testSuiteId, request);
 
@@ -103,27 +87,14 @@ public class TestSuiteTestCasesController : ControllerBase
             _logger.LogInformation("Removing test case {TestCaseId} from suite {TestSuiteId}", testCaseId, testSuiteId);
 
             if (string.IsNullOrWhiteSpace(testSuiteId))
-            {
                 return BadRequest("Test suite ID is required");
-            }
 
             if (string.IsNullOrWhiteSpace(testCaseId))
-            {
                 return BadRequest("Test case ID is required");
-            }
 
             var success = await _service.RemoveTestCaseAsync(testSuiteId, testCaseId);
 
-            if (success)
-            {
-                _logger.LogInformation("Successfully removed test case {TestCaseId} from suite {TestSuiteId}", testCaseId, testSuiteId);
-                return NoContent();
-            }
-            else
-            {
-                _logger.LogWarning("Test case assignment not found: Suite={TestSuiteId}, TestCase={TestCaseId}", testSuiteId, testCaseId);
-                return NotFound($"Test case assignment not found");
-            }
+            return success ? NoContent() : NotFound("Test case assignment not found");
         }
         catch (InvalidOperationException ex)
         {
@@ -134,6 +105,33 @@ public class TestSuiteTestCasesController : ControllerBase
         {
             _logger.LogError(ex, "Error removing test case {TestCaseId} from suite {TestSuiteId}", testCaseId, testSuiteId);
             return StatusCode(500, "Internal server error occurred while removing test case");
+        }
+    }
+
+    [HttpDelete]
+    public async Task<ActionResult> RemoveAll(string testSuiteId)
+    {
+        try
+        {
+            _logger.LogInformation("Removing all test case assignments from suite {TestSuiteId}", testSuiteId);
+
+            if (string.IsNullOrWhiteSpace(testSuiteId))
+                return BadRequest("Test suite ID is required");
+
+            await _service.RemoveAllAssignmentsAsync(testSuiteId);
+
+            _logger.LogInformation("Successfully removed all test cases from suite {TestSuiteId}", testSuiteId);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Invalid operation during removing all test cases for suite {TestSuiteId}", testSuiteId);
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing all test cases from suite {TestSuiteId}", testSuiteId);
+            return StatusCode(500, "Internal server error occurred while removing all test cases");
         }
     }
 }

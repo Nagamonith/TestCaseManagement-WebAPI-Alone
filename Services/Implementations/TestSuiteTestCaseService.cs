@@ -34,7 +34,6 @@ namespace TestCaseManagement.Services.Implementations
 
         public async Task<TestSuiteWithCasesResponse> GetAllTestCasesAsync(string testSuiteId)
         {
-            // Query the TestSuite including related TestCases
             var context = _repository.GetDbContext();
             var testSuite = await context.Set<TestSuite>()
                 .Include(ts => ts.TestSuiteTestCases)
@@ -76,7 +75,6 @@ namespace TestCaseManagement.Services.Implementations
             var existingTestCaseIds = existingTestCases.Select(t => t.TestCaseId).ToHashSet();
 
             var newTestCaseIds = validTestCaseIds.Except(existingTestCaseIds).ToList();
-
             if (!newTestCaseIds.Any())
             {
                 _logger.LogInformation("All test cases are already assigned to suite {TestSuiteId}", testSuiteId);
@@ -90,9 +88,7 @@ namespace TestCaseManagement.Services.Implementations
             {
                 try
                 {
-                    // Fetch full TestCase to get ModuleId & ProductVersionId
-                    var singleTestCase = (await _testCaseRepository
-                        .FindAsync(tc => tc.Id == testCaseId))
+                    var singleTestCase = (await _testCaseRepository.FindAsync(tc => tc.Id == testCaseId))
                         .FirstOrDefault();
 
                     if (singleTestCase == null)
@@ -106,7 +102,7 @@ namespace TestCaseManagement.Services.Implementations
                         TestSuiteId = testSuiteId,
                         TestCaseId = testCaseId,
                         ModuleId = singleTestCase.ModuleId,
-                        ProductVersionId = singleTestCase.ProductVersionId, // ? Auto-set
+                        ProductVersionId = singleTestCase.ProductVersionId,
                         AddedAt = DateTime.UtcNow
                     };
 
@@ -139,7 +135,6 @@ namespace TestCaseManagement.Services.Implementations
             }
         }
 
-
         public async Task<bool> RemoveTestCaseAsync(string testSuiteId, string testCaseId)
         {
             _logger.LogInformation("Removing test case {TestCaseId} from suite {TestSuiteId}", testCaseId, testSuiteId);
@@ -168,6 +163,34 @@ namespace TestCaseManagement.Services.Implementations
                 _logger.LogError(ex, "Failed to remove test case {TestCaseId} from suite {TestSuiteId}",
                     testCaseId, testSuiteId);
                 throw new InvalidOperationException("Failed to remove test case assignment", ex);
+            }
+        }
+
+        public async Task RemoveAllAssignmentsAsync(string testSuiteId)
+        {
+            _logger.LogInformation("Removing all test case assignments from suite {TestSuiteId}", testSuiteId);
+
+            var context = _repository.GetDbContext();
+            var assignments = await context.Set<TestSuiteTestCase>()
+                .Where(t => t.TestSuiteId == testSuiteId)
+                .ToListAsync();
+
+            if (!assignments.Any())
+            {
+                _logger.LogInformation("No assignments found for suite {TestSuiteId}", testSuiteId);
+                return;
+            }
+
+            try
+            {
+                context.RemoveRange(assignments);
+                await context.SaveChangesAsync();
+                _logger.LogInformation("Removed {Count} assignments from suite {TestSuiteId}", assignments.Count, testSuiteId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to remove all assignments for suite {TestSuiteId}", testSuiteId);
+                throw new InvalidOperationException("Failed to remove all test case assignments", ex);
             }
         }
     }
