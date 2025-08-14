@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TestCaseManagement.Api.Models.DTOs.Common;
 using TestCaseManagement.Api.Models.DTOs.Products;
+using TestCaseManagement.Api.Models.Responses.Products; // Add this namespace
 using TestCaseManagement.Services.Interfaces;
 
 namespace TestCaseManagement.Api.Controllers;
@@ -17,14 +18,14 @@ public class ProductVersionsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProductVersionRequest>>> GetAll(string productId)
+    public async Task<ActionResult<IEnumerable<ProductVersionResponse>>> GetAll(string productId)
     {
         var versions = await _productVersionService.GetAllVersionsAsync(productId);
         return Ok(versions);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<ProductVersionRequest>> GetById(string productId, string id)
+    public async Task<ActionResult<ProductVersionResponse>> GetById(string productId, string id)
     {
         var version = await _productVersionService.GetVersionByIdAsync(productId, id);
         return version != null ? Ok(version) : NotFound();

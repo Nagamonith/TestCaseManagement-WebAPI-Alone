@@ -49,6 +49,7 @@ namespace TestCaseManagement.Services.Implementations
                     .Include(tc => tc.ManualTestCaseSteps)
                     .Include(tc => tc.TestCaseAttributes)
                         .ThenInclude(a => a.ModuleAttribute)
+                    .Include(tc => tc.ProductVersion) // Added to fetch ProductVersion name
             );
 
             return _mapper.Map<IEnumerable<TestCaseResponse>>(testCases);
@@ -62,6 +63,7 @@ namespace TestCaseManagement.Services.Implementations
                     .Include(tc => tc.ManualTestCaseSteps)
                     .Include(tc => tc.TestCaseAttributes)
                         .ThenInclude(a => a.ModuleAttribute)
+                    .Include(tc => tc.ProductVersion) // Added to fetch ProductVersion name
             )).FirstOrDefault();
 
             return _mapper.Map<TestCaseDetailResponse>(testCase);
@@ -185,8 +187,6 @@ namespace TestCaseManagement.Services.Implementations
                             await _testCaseAttributeRepository.AddAsync(newAttr);
                         }
                     }
-
-                    // Optional: Remove attributes not in the request if needed (not currently implemented)
                 }
 
                 _testCaseRepository.Update(testCase);
@@ -213,8 +213,6 @@ namespace TestCaseManagement.Services.Implementations
                     .FirstOrDefaultAsync(tc => tc.ModuleId == moduleId && tc.Id == id);
 
                 if (testCase == null) return false;
-
-                // Delete related entities manually to avoid FK constraint errors
 
                 var runResults = await _dbContext.TestRunResults
                     .Where(r => r.TestCaseId == id)
@@ -328,8 +326,6 @@ namespace TestCaseManagement.Services.Implementations
             }
         }
 
-        // --- New methods for single attribute operations ---
-
         public async Task AddTestCaseAttributeAsync(string moduleId, string testCaseId, TestCaseAttributeRequest request)
         {
             var testCase = await _testCaseRepository.GetByIdAsync(testCaseId);
@@ -403,7 +399,6 @@ namespace TestCaseManagement.Services.Implementations
             if (attribute == null)
                 return false;
 
-            // Instead of deleting record, clear the value
             attribute.Value = string.Empty;
             _testCaseAttributeRepository.Update(attribute);
             await _dbContext.SaveChangesAsync();
