@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using TestCaseManagement.Api.Models.DTOs.TestCases;
 using TestCaseManagement.Api.Models.DTOs.TestSuites;
+using TestCaseManagement.Api.Models.DTOs.Uploads;
 using TestCaseManagement.Api.Models.Entities;
 using TestCaseManagement.Data;
 using TestCaseManagement.Repositories.Interfaces;
@@ -50,28 +51,65 @@ namespace TestCaseManagement.Services.Implementations
                     .AsNoTracking()
                     .Include(ts => ts.TestSuiteTestCases)
                         .ThenInclude(tstc => tstc.TestCase)
-                            .ThenInclude(tc => tc.ProductVersion)
+                    .Include(ts => ts.TestSuiteTestCases)
+                        .ThenInclude(tstc => tstc.Module)
+                    .Include(ts => ts.TestSuiteTestCases)
+                        .ThenInclude(tstc => tstc.ProductVersion)
                     .Include(ts => ts.TestSuiteTestCases)
                         .ThenInclude(tstc => tstc.Uploads)
                     .FirstOrDefaultAsync(ts => ts.Id == testSuiteId);
 
                 if (testSuite == null)
                 {
-                    _logger.LogWarning("Test suite not found: {TestSuiteId}", testSuiteId);
                     throw new KeyNotFoundException("Test suite not found");
                 }
 
-                var response = _mapper.Map<TestSuiteWithCasesResponse>(testSuite);
-                response.TestCases = testSuite.TestSuiteTestCases
-                    .Select(tstc => new TestCaseWithExecutionDetailsResponse
+                var response = new TestSuiteWithCasesResponse
+                {
+                    Id = testSuite.Id,
+                    ProductId = testSuite.ProductId,
+                    Name = testSuite.Name,
+                    Description = testSuite.Description,
+                    CreatedAt = testSuite.CreatedAt,
+                    UpdatedAt = testSuite.UpdatedAt,
+                    IsActive = testSuite.IsActive,
+                    TestCases = testSuite.TestSuiteTestCases.Select(tstc => new TestCaseWithExecutionDetailsResponse
                     {
-                        TestCase = _mapper.Map<TestCaseResponse>(tstc.TestCase),
-                        ExecutionDetails = _mapper.Map<ExecutionDetailsResponse>(tstc)
-                    })
-                    .ToList();
+                        TestCase = new TestCaseResponse
+                        {
+                            Id = tstc.TestCase.Id,
+                            ModuleId = tstc.TestCase.ModuleId,
+                            ProductVersionName = tstc.ProductVersion?.Version ?? string.Empty,
+                            TestCaseId = tstc.TestCase.TestCaseId,
+                            UseCase = tstc.TestCase.UseCase,
+                            Scenario = tstc.TestCase.Scenario,
+                            TestType = tstc.TestCase.TestType,
+                            TestTool = tstc.TestCase.TestTool,
+                            CreatedAt = tstc.TestCase.CreatedAt,
+                            UpdatedAt = tstc.TestCase.UpdatedAt
+                        },
+                        ExecutionDetails = new ExecutionDetailsResponse
+                        {
+                            TestSuiteTestCaseId = tstc.Id,
+                            Result = tstc.Result,
+                            Actual = tstc.Actual,
+                            Remarks = tstc.Remarks,
+                            AddedAt = tstc.AddedAt,
+                            UpdatedAt = tstc.UpdatedAt,
+                            Uploads = tstc.Uploads.Select(u => new UploadResponse
+                            {
+                                Id = u.Id,
+                                FileName = u.FileName,
+                                FilePath = u.FilePath,
+                                FileType = u.FileType,
+                                FileSize = u.FileSize,
+                                UploadedAt = u.UploadedAt,
+                                UploadedBy = u.UploadedBy
+                            }).ToList()
+                        }
+                    }).ToList()
+                };
 
-                _logger.LogInformation("Retrieved {Count} test cases for suite {TestSuiteId}",
-                    response.TestCases.Count, testSuiteId);
                 return response;
             }
             catch (Exception ex)
@@ -191,7 +229,7 @@ namespace TestCaseManagement.Services.Implementations
             _logger.LogInformation("Updated execution details for test suite test case {TestSuiteTestCaseId}", testSuiteTestCaseId);
         }
 
-        public async Task AddExecutionUploadAsync(int testSuiteTestCaseId, AddExecutionUploadRequest request)
+        public async Task<string> AddExecutionUploadAsync(int testSuiteTestCaseId, AddExecutionUploadRequest request)
         {
             var tstcExists = await _repository.ExistsAsync(t => t.Id == testSuiteTestCaseId);
             if (!tstcExists)
@@ -202,6 +240,7 @@ namespace TestCaseManagement.Services.Implementations
 
             var upload = new Upload
             {
+                Id = Guid.NewGuid().ToString(), // Generate a new ID
                 FileName = request.FileName,
                 FilePath = request.FilePath,
                 FileType = request.FileType,
@@ -214,6 +253,8 @@ namespace TestCaseManagement.Services.Implementations
             await _uploadRepository.AddAsync(upload);
             await _uploadRepository.SaveChangesAsync();
             _logger.LogInformation("Added upload for test suite test case {TestSuiteTestCaseId}", testSuiteTestCaseId);
+
+            return upload.Id; // Return the ID of the created upload
         }
 
         public async Task<bool> RemoveTestCaseAsync(string testSuiteId, string testCaseId)
@@ -260,7 +301,7 @@ namespace TestCaseManagement.Services.Implementations
             }
         }
 
-        public async Task RemoveAllAssignmentsAsync(string testSuiteId)
+        public async Task<int> RemoveAllAssignmentsAsync(string testSuiteId)
         {
             await using var transaction = await _repository.BeginTransactionAsync();
 
@@ -275,7 +316,7 @@ namespace TestCaseManagement.Services.Implementations
                 if (!assignments.Any())
                 {
                     _logger.LogInformation("No assignments found for suite {TestSuiteId}", testSuiteId);
-                    return;
+                    return 0;
                 }
 
                 // Delete all uploads first
@@ -291,8 +332,9 @@ namespace TestCaseManagement.Services.Implementations
                 await _repository.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("Removed {Count} assignments from suite {TestSuiteId}",
-                    assignments.Count, testSuiteId);
+                int count = assignments.Count;
+                _logger.LogInformation("Removed {Count} assignments from suite {TestSuiteId}", count, testSuiteId);
+                return count;
             }
             catch (Exception ex)
             {

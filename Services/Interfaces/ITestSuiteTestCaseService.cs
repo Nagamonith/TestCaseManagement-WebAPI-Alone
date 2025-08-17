@@ -8,13 +8,13 @@ namespace TestCaseManagement.Services.Interfaces
         Task<TestSuiteTestCaseResponse> GetTestCaseExecutionDetailsAsync(int testSuiteTestCaseId);
         Task AssignTestCasesAsync(string testSuiteId, AssignTestCasesRequest request);
         Task<bool> RemoveTestCaseAsync(string testSuiteId, string testCaseId);
-        Task RemoveAllAssignmentsAsync(string testSuiteId);
+        Task<int> RemoveAllAssignmentsAsync(string testSuiteId);
 
         // New methods for execution details
         Task UpdateExecutionDetailsAsync(int testSuiteTestCaseId, UpdateExecutionDetailsRequest request);
 
         // New methods for uploads
-        Task AddExecutionUploadAsync(int testSuiteTestCaseId, AddExecutionUploadRequest request);
+        Task<string> AddExecutionUploadAsync(int testSuiteTestCaseId, AddExecutionUploadRequest request);
         Task RemoveExecutionUploadAsync(string uploadId);
     }
 }
