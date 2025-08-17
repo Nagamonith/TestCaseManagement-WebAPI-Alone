@@ -6,7 +6,7 @@ using System.Linq.Expressions;
 using TestCaseManagement.Data;
 using TestCaseManagement.Repositories.Interfaces;
 
-namespace TestCaseManagement.Repositories.Implementations
+namespace TestCaseManagement.Api.Repositories.Implementations
 {
     public class GenericRepository<T> : IGenericRepository<T> where T : class
     {

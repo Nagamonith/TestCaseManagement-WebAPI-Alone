@@ -25,8 +25,4 @@
     <ProjectReference Include="..\TestCaseManagementService\TestCaseManagementService.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Repositories\Implementations\" />
-  </ItemGroup>
-
 </Project>
