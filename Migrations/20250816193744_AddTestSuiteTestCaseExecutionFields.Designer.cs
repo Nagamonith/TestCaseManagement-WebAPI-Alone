@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TestCaseManagement.Data;
 
@@ -11,9 +12,11 @@ using TestCaseManagement.Data;
 namespace TestCaseManagement.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250816193744_AddTestSuiteTestCaseExecutionFields")]
+    partial class AddTestSuiteTestCaseExecutionFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -409,10 +412,6 @@ namespace TestCaseManagement.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Actual")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
                     b.Property<DateTime>("AddedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -423,18 +422,8 @@ namespace TestCaseManagement.Api.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ProductVersionId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Remarks")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("Result")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasDefaultValue("Pending");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("TestCaseId")
                         .IsRequired()
@@ -443,9 +432,6 @@ namespace TestCaseManagement.Api.Migrations
                     b.Property<string>("TestSuiteId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -486,9 +472,6 @@ namespace TestCaseManagement.Api.Migrations
                     b.Property<string>("TestCaseId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int?>("TestSuiteTestCaseId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("UploadedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -502,8 +485,6 @@ namespace TestCaseManagement.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("TestCaseId");
-
-                    b.HasIndex("TestSuiteTestCaseId");
 
                     b.ToTable("Uploads");
                 });
@@ -675,7 +656,8 @@ namespace TestCaseManagement.Api.Migrations
                     b.HasOne("TestCaseManagement.Api.Models.Entities.ProductVersion", "ProductVersion")
                         .WithMany()
                         .HasForeignKey("ProductVersionId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
 
                     b.HasOne("TestCaseManagement.Api.Models.Entities.TestCase", "TestCase")
                         .WithMany("TestSuiteTestCases")
@@ -705,14 +687,7 @@ namespace TestCaseManagement.Api.Migrations
                         .HasForeignKey("TestCaseId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("TestCaseManagement.Api.Models.Entities.TestSuiteTestCase", "TestSuiteTestCase")
-                        .WithMany("Uploads")
-                        .HasForeignKey("TestSuiteTestCaseId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("TestCase");
-
-                    b.Navigation("TestSuiteTestCase");
                 });
 
             modelBuilder.Entity("TestCaseManagement.Api.Models.Entities.Module", b =>
@@ -770,11 +745,6 @@ namespace TestCaseManagement.Api.Migrations
                     b.Navigation("TestRunTestSuites");
 
                     b.Navigation("TestSuiteTestCases");
-                });
-
-            modelBuilder.Entity("TestCaseManagement.Api.Models.Entities.TestSuiteTestCase", b =>
-                {
-                    b.Navigation("Uploads");
                 });
 #pragma warning restore 612, 618
         }

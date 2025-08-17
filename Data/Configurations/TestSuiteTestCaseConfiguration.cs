@@ -13,33 +13,49 @@ namespace TestCaseManagement.Data.Configurations
             builder.Property(t => t.AddedAt)
                 .HasDefaultValueSql("GETDATE()");
 
-            // Cascade delete when TestSuite is deleted
+            // Configure execution fields
+            builder.Property(t => t.Result)
+                .HasDefaultValue("Pending")
+                .HasMaxLength(50);
+
+            builder.Property(t => t.Actual)
+                .HasMaxLength(1000);
+
+            builder.Property(t => t.Remarks)
+                .HasMaxLength(1000);
+
+            // Relationships configuration
             builder.HasOne(t => t.TestSuite)
                 .WithMany(ts => ts.TestSuiteTestCases)
                 .HasForeignKey(t => t.TestSuiteId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Prevent cascading delete from TestCase to avoid multiple cascade paths
             builder.HasOne(t => t.TestCase)
                 .WithMany(tc => tc.TestSuiteTestCases)
                 .HasForeignKey(t => t.TestCaseId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Module relationship
             builder.HasOne(t => t.Module)
                 .WithMany()
                 .HasForeignKey(t => t.ModuleId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // New: ProductVersion relationship
             builder.HasOne(t => t.ProductVersion)
-                .WithMany() // Adjust if you want navigation from ProductVersion side
+                .WithMany()
                 .HasForeignKey(t => t.ProductVersionId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // Configure Uploads relationship
+            builder.HasMany(t => t.Uploads)
+                .WithOne(u => u.TestSuiteTestCase)
+                .HasForeignKey(u => u.TestSuiteTestCaseId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Unique index to avoid duplicate TestSuite-TestCase pairs
             builder.HasIndex(t => new { t.TestSuiteId, t.TestCaseId })
                 .IsUnique();
+            builder.Property(t => t.UpdatedAt)
+    .IsRequired(false); // Make it nullable since it won't be set initially
         }
     }
 }

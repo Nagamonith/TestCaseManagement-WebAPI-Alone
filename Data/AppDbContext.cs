@@ -32,10 +32,19 @@ namespace TestCaseManagement.Data
 
             // Configure nullable relationship: Upload → TestCase
             modelBuilder.Entity<Upload>()
-                .HasOne(u => u.TestCase)
-                .WithMany(tc => tc.Uploads)
-                .HasForeignKey(u => u.TestCaseId)
-                .OnDelete(DeleteBehavior.SetNull);
+      .HasOne(u => u.TestCase)
+      .WithMany(tc => tc.Uploads)
+      .HasForeignKey(u => u.TestCaseId)
+      .IsRequired(false)  // Make this optional
+      .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Upload>()
+       .HasOne(u => u.TestSuiteTestCase)
+       .WithMany(tstc => tstc.Uploads)
+       .HasForeignKey(u => u.TestSuiteTestCaseId)
+       .IsRequired(false)  // Make this optional
+       .OnDelete(DeleteBehavior.SetNull);
+
         }
     }
 }

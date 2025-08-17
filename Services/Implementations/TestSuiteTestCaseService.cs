@@ -32,12 +32,15 @@ namespace TestCaseManagement.Services.Implementations
             _logger = logger;
         }
 
+        // ===== Existing methods =====
+
         public async Task<TestSuiteWithCasesResponse> GetAllTestCasesAsync(string testSuiteId)
         {
-            var context = _repository.GetDbContext();
-            var testSuite = await context.Set<TestSuite>()
+            var testSuite = await _repository.GetDbContext().Set<TestSuite>()
                 .Include(ts => ts.TestSuiteTestCases)
                     .ThenInclude(tstc => tstc.TestCase)
+                .Include(ts => ts.TestSuiteTestCases)
+                    .ThenInclude(tstc => tstc.Uploads)
                 .FirstOrDefaultAsync(ts => ts.Id == testSuiteId);
 
             if (testSuite == null)
@@ -47,9 +50,13 @@ namespace TestCaseManagement.Services.Implementations
             }
 
             var response = _mapper.Map<TestSuiteWithCasesResponse>(testSuite);
-            response.TestCases = _mapper.Map<List<TestCaseResponse>>(
-                testSuite.TestSuiteTestCases.Select(t => t.TestCase).Where(tc => tc != null)
-            );
+            response.TestCases = testSuite.TestSuiteTestCases
+                .Select(tstc => new TestCaseWithExecutionDetailsResponse
+                {
+                    TestCase = _mapper.Map<TestCaseResponse>(tstc.TestCase),
+                    ExecutionDetails = _mapper.Map<ExecutionDetailsResponse>(tstc)
+                })
+                .ToList();
 
             _logger.LogInformation("Retrieved {Count} test cases for suite {TestSuiteId}", response.TestCases.Count, testSuiteId);
             return response;
@@ -192,6 +199,83 @@ namespace TestCaseManagement.Services.Implementations
                 _logger.LogError(ex, "Failed to remove all assignments for suite {TestSuiteId}", testSuiteId);
                 throw new InvalidOperationException("Failed to remove all test case assignments", ex);
             }
+        }
+
+        // ===== AI-updated execution methods =====
+
+        public async Task<TestSuiteTestCaseResponse> GetTestCaseExecutionDetailsAsync(int testSuiteTestCaseId)
+        {
+            var testSuiteTestCase = await _repository.Query()
+                .Include(t => t.TestCase)
+                .Include(t => t.Uploads)
+                .FirstOrDefaultAsync(t => t.Id == testSuiteTestCaseId);
+
+            if (testSuiteTestCase == null)
+            {
+                throw new KeyNotFoundException("Test suite test case not found");
+            }
+
+            return _mapper.Map<TestSuiteTestCaseResponse>(testSuiteTestCase);
+        }
+
+        public async Task UpdateExecutionDetailsAsync(int testSuiteTestCaseId, UpdateExecutionDetailsRequest request)
+        {
+            var testSuiteTestCase = await _repository.Query()
+                .FirstOrDefaultAsync(t => t.Id == testSuiteTestCaseId);
+
+            if (testSuiteTestCase == null)
+            {
+                throw new KeyNotFoundException("Test suite test case not found");
+            }
+
+            testSuiteTestCase.Result = request.Result;
+            testSuiteTestCase.Actual = request.Actual;
+            testSuiteTestCase.Remarks = request.Remarks;
+            testSuiteTestCase.UpdatedAt = DateTime.UtcNow;
+
+            _repository.Update(testSuiteTestCase);
+            await _repository.SaveChangesAsync();
+        }
+
+        public async Task AddExecutionUploadAsync(int testSuiteTestCaseId, AddExecutionUploadRequest request)
+        {
+            var testSuiteTestCase = await _repository.Query()
+                .FirstOrDefaultAsync(t => t.Id == testSuiteTestCaseId);
+
+            if (testSuiteTestCase == null)
+            {
+                throw new KeyNotFoundException("Test suite test case not found");
+            }
+
+            var upload = new Upload
+            {
+                FileName = request.FileName,
+                FilePath = request.FilePath,
+                FileType = request.FileType,
+                FileSize = request.FileSize,
+                UploadedAt = DateTime.UtcNow,
+                UploadedBy = request.UploadedBy,
+                TestSuiteTestCaseId = testSuiteTestCaseId
+            };
+
+            var context = _repository.GetDbContext();
+            await context.Set<Upload>().AddAsync(upload);
+            await context.SaveChangesAsync();
+        }
+
+        public async Task RemoveExecutionUploadAsync(string uploadId)
+        {
+            var context = _repository.GetDbContext();
+            var upload = await context.Set<Upload>()
+                .FirstOrDefaultAsync(u => u.Id == uploadId && u.TestSuiteTestCaseId != null);
+
+            if (upload == null)
+            {
+                throw new KeyNotFoundException("Upload not found or not associated with test suite execution");
+            }
+
+            context.Remove(upload);
+            await context.SaveChangesAsync();
         }
     }
 }
