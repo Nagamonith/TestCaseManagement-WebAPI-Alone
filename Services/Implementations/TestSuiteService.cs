@@ -1,5 +1,4 @@
 using AutoMapper;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -9,6 +8,7 @@ using System.Threading.Tasks;
 using TestCaseManagement.Api.Models.DTOs.Common;
 using TestCaseManagement.Api.Models.DTOs.TestSuites;
 using TestCaseManagement.Api.Models.Entities;
+using TestCaseManagement.Data;
 using TestCaseManagement.Repositories.Interfaces;
 using TestCaseManagement.Services.Interfaces;
 
@@ -18,20 +18,26 @@ namespace TestCaseManagement.Services.Implementations
     {
         private readonly IGenericRepository<TestSuite> _testSuiteRepository;
         private readonly IGenericRepository<Product> _productRepository;
-        private readonly ITestSuiteTestCaseService _testSuiteTestCaseService;
+        private readonly IGenericRepository<TestSuiteTestCase> _testSuiteTestCaseRepository;
+        private readonly IGenericRepository<TestRunTestSuite> _testRunTestSuiteRepository;
+        private readonly AppDbContext _dbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<TestSuiteService> _logger;
 
         public TestSuiteService(
             IGenericRepository<TestSuite> testSuiteRepository,
             IGenericRepository<Product> productRepository,
-            ITestSuiteTestCaseService testSuiteTestCaseService,
+            IGenericRepository<TestSuiteTestCase> testSuiteTestCaseRepository,
+            IGenericRepository<TestRunTestSuite> testRunTestSuiteRepository,
+            AppDbContext dbContext,
             IMapper mapper,
             ILogger<TestSuiteService> logger)
         {
             _testSuiteRepository = testSuiteRepository;
             _productRepository = productRepository;
-            _testSuiteTestCaseService = testSuiteTestCaseService;
+            _testSuiteTestCaseRepository = testSuiteTestCaseRepository;
+            _testRunTestSuiteRepository = testRunTestSuiteRepository;
+            _dbContext = dbContext;
             _mapper = mapper;
             _logger = logger;
         }
@@ -90,11 +96,12 @@ namespace TestCaseManagement.Services.Implementations
 
         public async Task<bool> DeleteTestSuiteAsync(string productId, string id, bool forceDelete = false)
         {
-            await using var transaction = await _testSuiteRepository.BeginTransactionAsync();
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
             try
             {
-                var testSuite = await _testSuiteRepository.Query()
+                // Get test suite with all related data that needs to be deleted
+                var testSuite = await _dbContext.TestSuites
                     .Include(ts => ts.TestSuiteTestCases)
                     .Include(ts => ts.TestRunTestSuites)
                     .FirstOrDefaultAsync(ts => ts.ProductId == productId && ts.Id == id);
@@ -105,21 +112,30 @@ namespace TestCaseManagement.Services.Implementations
                     return false;
                 }
 
-                if (!forceDelete && (testSuite.TestSuiteTestCases.Any() || testSuite.TestRunTestSuites.Any()))
+                // Check if test suite is referenced in active test runs
+                if (!forceDelete && testSuite.TestRunTestSuites.Any())
                 {
-                    _logger.LogWarning("Attempt to delete referenced test suite without force: {TestSuiteId}", id);
-                    throw new BadHttpRequestException(
-                        "Cannot delete test suite as it is referenced by other entities. Use forceDelete=true to override.");
+                    _logger.LogWarning("Attempt to delete test suite referenced in test runs without force: {TestSuiteId}", id);
+                    throw new InvalidOperationException(
+                        "Cannot delete test suite as it is referenced by test runs. Use forceDelete=true to override.");
                 }
 
-                if (forceDelete)
+                // 1. Delete all TestSuiteTestCases (test case assignments)
+                if (testSuite.TestSuiteTestCases.Any())
                 {
-                    // Remove all test case assignments
-                    await _testSuiteTestCaseService.RemoveAllAssignmentsAsync(id);
+                    _dbContext.TestSuiteTestCases.RemoveRange(testSuite.TestSuiteTestCases);
                 }
 
-                _testSuiteRepository.Remove(testSuite);
-                await _testSuiteRepository.SaveChangesAsync();
+                // 2. Delete all TestRunTestSuites (test run assignments)
+                if (testSuite.TestRunTestSuites.Any())
+                {
+                    _dbContext.TestRunTestSuites.RemoveRange(testSuite.TestRunTestSuites);
+                }
+
+                // 3. Finally delete the test suite itself
+                _dbContext.TestSuites.Remove(testSuite);
+
+                await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 _logger.LogInformation("Successfully deleted test suite {TestSuiteId}", id);

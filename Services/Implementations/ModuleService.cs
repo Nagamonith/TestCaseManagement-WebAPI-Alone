@@ -19,6 +19,8 @@ namespace TestCaseManagement.Services.Implementations
     {
         private readonly IGenericRepository<Module> _moduleRepository;
         private readonly IGenericRepository<Product> _productRepository;
+        private readonly IGenericRepository<TestCase> _testCaseRepository;
+        private readonly IGenericRepository<TestSuiteTestCase> _testSuiteTestCaseRepository;
         private readonly AppDbContext _dbContext;
         private readonly ILogger<ModuleService> _logger;
         private readonly IMapper _mapper;
@@ -26,11 +28,16 @@ namespace TestCaseManagement.Services.Implementations
         public ModuleService(
             IGenericRepository<Module> moduleRepository,
             IGenericRepository<Product> productRepository,
+            IGenericRepository<TestCase> testCaseRepository,
+            IGenericRepository<TestSuiteTestCase> testSuiteTestCaseRepository,
             AppDbContext dbContext,
-            ILogger<ModuleService> logger, IMapper mapper)
+            ILogger<ModuleService> logger,
+            IMapper mapper)
         {
             _moduleRepository = moduleRepository;
             _productRepository = productRepository;
+            _testCaseRepository = testCaseRepository;
+            _testSuiteTestCaseRepository = testSuiteTestCaseRepository;
             _dbContext = dbContext;
             _logger = logger;
             _mapper = mapper;
@@ -41,7 +48,7 @@ namespace TestCaseManagement.Services.Implementations
             try
             {
                 return await _dbContext.Modules
-                    .Include(m => m.ProductVersion) // Include the related ProductVersion
+                    .Include(m => m.ProductVersion)
                     .Where(m => m.ProductId == productId)
                     .Select(m => new ModuleResponse
                     {
@@ -67,7 +74,7 @@ namespace TestCaseManagement.Services.Implementations
             try
             {
                 var module = await _dbContext.Modules
-                    .Include(m => m.ProductVersion) // Include the related ProductVersion
+                    .Include(m => m.ProductVersion)
                     .Where(m => m.ProductId == productId && m.Id == id)
                     .Select(m => new ModuleResponse
                     {
@@ -95,17 +102,14 @@ namespace TestCaseManagement.Services.Implementations
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                // Ensure product exists
                 var product = await _productRepository.GetByIdAsync(request.ProductId);
                 if (product == null)
                     throw new KeyNotFoundException("Product not found");
 
-                // Determine ProductVersionId:
                 string productVersionId = request.ProductVersionId?.Trim() ?? string.Empty;
 
                 if (string.IsNullOrWhiteSpace(productVersionId))
                 {
-                    // Lookup latest active product version for the product
                     var latestVersion = await _dbContext.ProductVersions
                         .Where(v => v.ProductId == request.ProductId && v.IsActive)
                         .OrderByDescending(v => v.CreatedAt)
@@ -118,7 +122,6 @@ namespace TestCaseManagement.Services.Implementations
                 }
                 else
                 {
-                    // Validate provided ProductVersionId belongs to the Product
                     var exists = await _dbContext.ProductVersions
                         .AnyAsync(v => v.Id == productVersionId && v.ProductId == request.ProductId);
                     if (!exists)
@@ -132,7 +135,6 @@ namespace TestCaseManagement.Services.Implementations
                     Name = request.Name.Trim(),
                     Description = request.Description?.Trim(),
                     IsActive = request.IsActive
-                    // CreatedAt is set by default on the entity
                 };
 
                 await _dbContext.Modules.AddAsync(module);
@@ -164,36 +166,26 @@ namespace TestCaseManagement.Services.Implementations
                 var module = await _moduleRepository.GetByIdAsync(id);
                 if (module == null) return false;
 
-                // Optionally validate product id (ensure module belongs to product in request)
                 if (!string.Equals(module.ProductId, request.ProductId, StringComparison.OrdinalIgnoreCase))
-                {
-                    // If request.ProductId differs from module.ProductId, reject to avoid moving module between products
                     throw new InvalidOperationException("ProductId mismatch. Module cannot be moved between products.");
-                }
 
                 module.Name = request.Name.Trim();
                 module.Description = request.Description?.Trim();
                 module.IsActive = request.IsActive;
 
-                // Handle ProductVersionId update:
                 var newVersionId = request.ProductVersionId?.Trim() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(newVersionId))
                 {
-                    // If no version provided on update, we set it to the latest active version automatically
                     var latestVersion = await _dbContext.ProductVersions
                         .Where(v => v.ProductId == module.ProductId && v.IsActive)
                         .OrderByDescending(v => v.CreatedAt)
                         .FirstOrDefaultAsync();
 
                     if (latestVersion != null)
-                    {
                         module.ProductVersionId = latestVersion.Id;
-                    }
-                    // if no latestVersion found, keep existing version (or you may decide to throw)
                 }
                 else
                 {
-                    // Validate provided ProductVersionId belongs to the product
                     var exists = await _dbContext.ProductVersions
                         .AnyAsync(v => v.Id == newVersionId && v.ProductId == module.ProductId);
 
@@ -223,14 +215,33 @@ namespace TestCaseManagement.Services.Implementations
             try
             {
                 var module = await _dbContext.Modules
+                    .Include(m => m.TestCases)
+                        .ThenInclude(tc => tc.TestSuiteTestCases)
+                    .Include(m => m.ModuleAttributes)
                     .FirstOrDefaultAsync(m => m.ProductId == productId && m.Id == id);
 
                 if (module == null) return false;
+
+                if (module.TestCases?.Any() == true)
+                {
+                    var testSuiteTestCasesToDelete = module.TestCases
+                        .SelectMany(tc => tc.TestSuiteTestCases)
+                        .ToList();
+
+                    if (testSuiteTestCasesToDelete.Any())
+                        _dbContext.TestSuiteTestCases.RemoveRange(testSuiteTestCasesToDelete);
+
+                    _dbContext.TestCases.RemoveRange(module.TestCases);
+                }
+
+                if (module.ModuleAttributes?.Any() == true)
+                    _dbContext.ModuleAttributes.RemoveRange(module.ModuleAttributes);
 
                 _dbContext.Modules.Remove(module);
 
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+
                 return true;
             }
             catch (Exception ex)
@@ -240,6 +251,7 @@ namespace TestCaseManagement.Services.Implementations
                 throw;
             }
         }
+
         public async Task<ModuleWithAttributesResponse?> GetModuleWithAttributesAsync(string productId, string moduleId)
         {
             var module = await _dbContext.Modules
@@ -249,10 +261,7 @@ namespace TestCaseManagement.Services.Implementations
 
             if (module == null) return null;
 
-            // Map to response DTO including attributes
-            // You may need AutoMapper config for this DTO
             return _mapper.Map<ModuleWithAttributesResponse>(module);
         }
-
     }
 }

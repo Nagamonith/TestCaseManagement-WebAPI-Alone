@@ -16,4 +16,5 @@ public class ProductVersion
 
     // Added navigation property for related test cases
     public ICollection<TestCase> TestCases { get; set; } = new List<TestCase>();
+    public ICollection<TestSuiteTestCase> TestSuiteTestCases { get; set; } = new List<TestSuiteTestCase>();
 }

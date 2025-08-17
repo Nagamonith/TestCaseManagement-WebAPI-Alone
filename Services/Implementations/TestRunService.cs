@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,19 +19,28 @@ namespace TestCaseManagement.Services.Implementations
     {
         private readonly IGenericRepository<TestRun> _testRunRepository;
         private readonly IGenericRepository<Product> _productRepository;
+        private readonly IGenericRepository<TestRunTestSuite> _testRunTestSuiteRepository;
+        private readonly IGenericRepository<TestRunResult> _testRunResultRepository;
         private readonly AppDbContext _dbContext;
         private readonly IMapper _mapper;
+        private readonly ILogger<TestRunService> _logger;
 
         public TestRunService(
             IGenericRepository<TestRun> testRunRepository,
             IGenericRepository<Product> productRepository,
+            IGenericRepository<TestRunTestSuite> testRunTestSuiteRepository,
+            IGenericRepository<TestRunResult> testRunResultRepository,
             AppDbContext dbContext,
-            IMapper mapper)
+            IMapper mapper,
+            ILogger<TestRunService> logger)
         {
             _testRunRepository = testRunRepository;
             _productRepository = productRepository;
+            _testRunTestSuiteRepository = testRunTestSuiteRepository;
+            _testRunResultRepository = testRunResultRepository;
             _dbContext = dbContext;
             _mapper = mapper;
+            _logger = logger;
         }
 
         public async Task<IEnumerable<TestRunResponse>> GetAllTestRunsAsync(string productId)
@@ -78,23 +88,46 @@ namespace TestCaseManagement.Services.Implementations
         public async Task<bool> DeleteTestRunAsync(string productId, string id)
         {
             await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
             try
             {
-                var testRuns = await _testRunRepository.FindAsync(tr => tr.ProductId == productId && tr.Id == id);
-                var entity = testRuns.FirstOrDefault();
-                if (entity == null) return false;
+                // Get test run with all related data that needs to be deleted
+                var testRun = await _dbContext.TestRuns
+                    .Include(tr => tr.TestRunTestSuites)
+                    .Include(tr => tr.TestRunResults)
+                    .FirstOrDefaultAsync(tr => tr.ProductId == productId && tr.Id == id);
 
-                // Cascade delete: TestRunTestSuites and TestRunResults are configured for cascade on DB and EF
+                if (testRun == null)
+                {
+                    _logger.LogWarning("Test run not found: ProductId={ProductId}, TestRunId={TestRunId}", productId, id);
+                    return false;
+                }
 
-                _testRunRepository.Remove(entity);
-                await _testRunRepository.SaveChangesAsync();
+                // 1. Delete all TestRunResults (execution results)
+                if (testRun.TestRunResults?.Any() == true)
+                {
+                    _dbContext.TestRunResults.RemoveRange(testRun.TestRunResults);
+                }
 
+                // 2. Delete all TestRunTestSuites (test suite assignments)
+                if (testRun.TestRunTestSuites?.Any() == true)
+                {
+                    _dbContext.TestRunTestSuites.RemoveRange(testRun.TestRunTestSuites);
+                }
+
+                // 3. Finally delete the test run itself
+                _dbContext.TestRuns.Remove(testRun);
+
+                await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                _logger.LogInformation("Successfully deleted test run {TestRunId}", id);
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error deleting test run {TestRunId}", id);
                 throw;
             }
         }

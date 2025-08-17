@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,6 +23,7 @@ namespace TestCaseManagement.Services.Implementations
         private readonly IGenericRepository<TestSuiteTestCase> _testSuiteTestCaseRepository;
         private readonly AppDbContext _dbContext;
         private readonly IMapper _mapper;
+        private readonly ILogger<TestCaseService> _logger;
 
         public TestCaseService(
             IGenericRepository<TestCase> testCaseRepository,
@@ -30,7 +32,8 @@ namespace TestCaseManagement.Services.Implementations
             IGenericRepository<TestCaseAttribute> testCaseAttributeRepository,
             IGenericRepository<TestSuiteTestCase> testSuiteTestCaseRepository,
             AppDbContext dbContext,
-            IMapper mapper)
+            IMapper mapper,
+            ILogger<TestCaseService> logger)
         {
             _testCaseRepository = testCaseRepository;
             _moduleRepository = moduleRepository;
@@ -39,6 +42,7 @@ namespace TestCaseManagement.Services.Implementations
             _testSuiteTestCaseRepository = testSuiteTestCaseRepository;
             _dbContext = dbContext;
             _mapper = mapper;
+            _logger = logger;
         }
 
         public async Task<IEnumerable<TestCaseResponse>> GetAllTestCasesAsync(string moduleId)
@@ -49,7 +53,7 @@ namespace TestCaseManagement.Services.Implementations
                     .Include(tc => tc.ManualTestCaseSteps)
                     .Include(tc => tc.TestCaseAttributes)
                         .ThenInclude(a => a.ModuleAttribute)
-                    .Include(tc => tc.ProductVersion) // Added to fetch ProductVersion name
+                    .Include(tc => tc.ProductVersion)
             );
 
             return _mapper.Map<IEnumerable<TestCaseResponse>>(testCases);
@@ -63,7 +67,7 @@ namespace TestCaseManagement.Services.Implementations
                     .Include(tc => tc.ManualTestCaseSteps)
                     .Include(tc => tc.TestCaseAttributes)
                         .ThenInclude(a => a.ModuleAttribute)
-                    .Include(tc => tc.ProductVersion) // Added to fetch ProductVersion name
+                    .Include(tc => tc.ProductVersion)
             )).FirstOrDefault();
 
             return _mapper.Map<TestCaseDetailResponse>(testCase);
@@ -76,10 +80,7 @@ namespace TestCaseManagement.Services.Implementations
                 throw new KeyNotFoundException("Module not found");
 
             var testCase = _mapper.Map<TestCase>(request);
-
-            // Map ProductVersionId explicitly if not handled by AutoMapper
             testCase.ProductVersionId = request.ProductVersionId;
-
             testCase.ManualTestCaseSteps = new List<ManualTestCaseStep>();
             testCase.TestCaseAttributes = new List<TestCaseAttribute>();
 
@@ -110,15 +111,11 @@ namespace TestCaseManagement.Services.Implementations
 
                 if (testCase == null) return false;
 
-                // Map basic fields
                 _mapper.Map(request, testCase);
-
-                // Explicitly update ProductVersionId if not mapped by AutoMapper
                 testCase.ProductVersionId = request.ProductVersionId;
-
                 testCase.UpdatedAt = DateTime.UtcNow;
 
-                // === Handle Steps update ===
+                // Update Steps
                 if (request.Steps != null)
                 {
                     var existingSteps = testCase.ManualTestCaseSteps.ToList();
@@ -148,19 +145,14 @@ namespace TestCaseManagement.Services.Implementations
 
                     var stepIdsInRequest = request.Steps.Where(s => s.Id.HasValue).Select(s => s.Id.Value).ToHashSet();
                     var stepsToRemove = existingSteps.Where(s => !stepIdsInRequest.Contains(s.Id)).ToList();
-
                     foreach (var stepToRemove in stepsToRemove)
-                    {
                         _dbContext.ManualTestCaseSteps.Remove(stepToRemove);
-                    }
                 }
 
-                // === Handle Attributes update ===
+                // Update Attributes
                 if (request.Attributes != null)
                 {
-                    var moduleAttributes = await _moduleAttributeRepository
-                        .FindAsync(ma => ma.ModuleId == moduleId);
-
+                    var moduleAttributes = await _moduleAttributeRepository.FindAsync(ma => ma.ModuleId == moduleId);
                     var existingAttributes = testCase.TestCaseAttributes.ToList();
 
                     foreach (var attrRequest in request.Attributes)
@@ -168,9 +160,7 @@ namespace TestCaseManagement.Services.Implementations
                         var moduleAttr = moduleAttributes.FirstOrDefault(ma => ma.Key == attrRequest.Key);
                         if (moduleAttr == null) continue;
 
-                        var existingAttr = existingAttributes.FirstOrDefault(ta =>
-                            ta.ModuleAttributeId == moduleAttr.Id);
-
+                        var existingAttr = existingAttributes.FirstOrDefault(ta => ta.ModuleAttributeId == moduleAttr.Id);
                         if (existingAttr != null)
                         {
                             existingAttr.Value = attrRequest.Value;
@@ -190,57 +180,6 @@ namespace TestCaseManagement.Services.Implementations
                 }
 
                 _testCaseRepository.Update(testCase);
-                await _dbContext.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                return true;
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-        }
-
-        public async Task<bool> DeleteTestCaseAsync(string moduleId, string id)
-        {
-            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
-
-            try
-            {
-                var testCase = await _dbContext.TestCases
-                    .AsTracking()
-                    .FirstOrDefaultAsync(tc => tc.ModuleId == moduleId && tc.Id == id);
-
-                if (testCase == null) return false;
-
-                var runResults = await _dbContext.TestRunResults
-                    .Where(r => r.TestCaseId == id)
-                    .ToListAsync();
-                if (runResults.Any()) _dbContext.TestRunResults.RemoveRange(runResults);
-
-                var suiteLinks = await _dbContext.TestSuiteTestCases
-                    .Where(s => s.TestCaseId == id)
-                    .ToListAsync();
-                if (suiteLinks.Any()) _dbContext.TestSuiteTestCases.RemoveRange(suiteLinks);
-
-                var steps = await _dbContext.ManualTestCaseSteps
-                    .Where(s => s.TestCaseId == id)
-                    .ToListAsync();
-                if (steps.Any()) _dbContext.ManualTestCaseSteps.RemoveRange(steps);
-
-                var attrs = await _dbContext.TestCaseAttributes
-                    .Where(a => a.TestCaseId == id)
-                    .ToListAsync();
-                if (attrs.Any()) _dbContext.TestCaseAttributes.RemoveRange(attrs);
-
-                var uploads = await _dbContext.Uploads
-                    .Where(u => u.TestCaseId == id)
-                    .ToListAsync();
-                if (uploads.Any()) _dbContext.Uploads.RemoveRange(uploads);
-
-                _dbContext.TestCases.Remove(testCase);
-
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
                 return true;
@@ -281,23 +220,17 @@ namespace TestCaseManagement.Services.Implementations
             try
             {
                 var testCase = await _testCaseRepository.GetByIdAsync(testCaseId);
-                if (testCase == null || testCase.ModuleId != moduleId)
-                    return false;
+                if (testCase == null || testCase.ModuleId != moduleId) return false;
 
-                var moduleAttributes = await _moduleAttributeRepository
-                    .FindAsync(ma => ma.ModuleId == moduleId);
-
-                var existingAttributes = await _testCaseAttributeRepository
-                    .FindAsync(ta => ta.TestCaseId == testCaseId);
+                var moduleAttributes = await _moduleAttributeRepository.FindAsync(ma => ma.ModuleId == moduleId);
+                var existingAttributes = await _testCaseAttributeRepository.FindAsync(ta => ta.TestCaseId == testCaseId);
 
                 foreach (var attrRequest in attributes)
                 {
                     var moduleAttr = moduleAttributes.FirstOrDefault(ma => ma.Key == attrRequest.Key);
                     if (moduleAttr == null) continue;
 
-                    var existingAttr = existingAttributes.FirstOrDefault(ta =>
-                        ta.ModuleAttributeId == moduleAttr.Id);
-
+                    var existingAttr = existingAttributes.FirstOrDefault(ta => ta.ModuleAttributeId == moduleAttr.Id);
                     if (existingAttr != null)
                     {
                         existingAttr.Value = attrRequest.Value;
@@ -332,8 +265,7 @@ namespace TestCaseManagement.Services.Implementations
             if (testCase == null || testCase.ModuleId != moduleId)
                 throw new KeyNotFoundException("Test case not found");
 
-            var moduleAttribute = (await _moduleAttributeRepository.FindAsync(ma => ma.ModuleId == moduleId && ma.Key.ToLower() == request.Key.ToLower()))
-                                  .FirstOrDefault();
+            var moduleAttribute = (await _moduleAttributeRepository.FindAsync(ma => ma.ModuleId == moduleId && ma.Key.ToLower() == request.Key.ToLower())).FirstOrDefault();
             if (moduleAttribute == null)
                 throw new KeyNotFoundException($"Module attribute with key '{request.Key}' not found");
 
@@ -355,16 +287,14 @@ namespace TestCaseManagement.Services.Implementations
         public async Task<bool> UpdateTestCaseAttributeAsync(string moduleId, string testCaseId, string key, TestCaseAttributeRequest request)
         {
             var testCase = await _testCaseRepository.GetByIdAsync(testCaseId);
-            if (testCase == null || testCase.ModuleId != moduleId)
-                return false;
+            if (testCase == null || testCase.ModuleId != moduleId) return false;
 
             var attribute = (await _testCaseAttributeRepository.FindAsync(
                 ta => ta.TestCaseId == testCaseId,
                 include: q => q.Include(ta => ta.ModuleAttribute)))
                 .FirstOrDefault(ta => string.Equals(ta.ModuleAttribute.Key, key, StringComparison.OrdinalIgnoreCase));
 
-            if (attribute == null)
-                return false;
+            if (attribute == null) return false;
 
             if (!string.Equals(key, request.Key, StringComparison.OrdinalIgnoreCase))
             {
@@ -381,29 +311,69 @@ namespace TestCaseManagement.Services.Implementations
             attribute.Value = request.Value;
             _testCaseAttributeRepository.Update(attribute);
             await _dbContext.SaveChangesAsync();
-
             return true;
         }
 
         public async Task<bool> DeleteTestCaseAttributeAsync(string moduleId, string testCaseId, string key)
         {
             var testCase = await _testCaseRepository.GetByIdAsync(testCaseId);
-            if (testCase == null || testCase.ModuleId != moduleId)
-                return false;
+            if (testCase == null || testCase.ModuleId != moduleId) return false;
 
             var attribute = (await _testCaseAttributeRepository.FindAsync(
                 ta => ta.TestCaseId == testCaseId,
                 include: q => q.Include(ta => ta.ModuleAttribute)))
                 .FirstOrDefault(ta => string.Equals(ta.ModuleAttribute.Key, key, StringComparison.OrdinalIgnoreCase));
 
-            if (attribute == null)
-                return false;
+            if (attribute == null) return false;
 
-            attribute.Value = string.Empty;
-            _testCaseAttributeRepository.Update(attribute);
+            _testCaseAttributeRepository.Remove(attribute);
             await _dbContext.SaveChangesAsync();
-
             return true;
+        }
+
+        public async Task<bool> DeleteTestCaseAsync(string moduleId, string id)
+        {
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
+            {
+                var testCase = await _dbContext.TestCases
+                    .Include(tc => tc.ManualTestCaseSteps)
+                    .Include(tc => tc.TestCaseAttributes)
+                    .Include(tc => tc.TestSuiteTestCases)
+                    .Include(tc => tc.TestRunResults)
+                    .Include(tc => tc.Uploads)
+                    .FirstOrDefaultAsync(tc => tc.ModuleId == moduleId && tc.Id == id);
+
+                if (testCase == null) return false;
+
+                if (testCase.ManualTestCaseSteps?.Any() == true)
+                    _dbContext.ManualTestCaseSteps.RemoveRange(testCase.ManualTestCaseSteps);
+
+                if (testCase.TestCaseAttributes?.Any() == true)
+                    _dbContext.TestCaseAttributes.RemoveRange(testCase.TestCaseAttributes);
+
+                if (testCase.TestSuiteTestCases?.Any() == true)
+                    _dbContext.TestSuiteTestCases.RemoveRange(testCase.TestSuiteTestCases);
+
+                if (testCase.TestRunResults?.Any() == true)
+                    _dbContext.TestRunResults.RemoveRange(testCase.TestRunResults);
+
+                if (testCase.Uploads?.Any() == true)
+                    _dbContext.Uploads.RemoveRange(testCase.Uploads);
+
+                _dbContext.TestCases.Remove(testCase);
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error deleting test case {TestCaseId} from module {ModuleId}", id, moduleId);
+                throw;
+            }
         }
     }
 }
