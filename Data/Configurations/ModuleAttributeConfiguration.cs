@@ -23,8 +23,7 @@ public class ModuleAttributeConfiguration : IEntityTypeConfiguration<ModuleAttri
             .HasMaxLength(20)
             .HasConversion<string>();
 
-        builder.Property(ma => ma.Options)
-            .HasColumnType("nvarchar(max)");
+        
 
         builder.HasOne(ma => ma.Module)
             .WithMany(m => m.ModuleAttributes)

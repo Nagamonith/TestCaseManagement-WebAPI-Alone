@@ -17,11 +17,12 @@ public class ModuleAttributesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ModuleAttributeRequest>>> GetAll(string moduleId)
+    public async Task<ActionResult<IEnumerable<ModuleAttributeResponse>>> GetAll(string moduleId)
     {
         var attributes = await _attributeService.GetAllAttributesAsync(moduleId);
         return Ok(attributes);
     }
+
 
     [HttpPost]
     public async Task<ActionResult<IdResponse>> Create(string moduleId, [FromBody] ModuleAttributeRequest request)

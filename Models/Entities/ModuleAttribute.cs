@@ -8,7 +8,7 @@ public class ModuleAttribute
     public string Key { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public bool IsRequired { get; set; }
-    public string? Options { get; set; }
+    
 
     public Module Module { get; set; } = null!;
 

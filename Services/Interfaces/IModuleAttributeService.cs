@@ -5,7 +5,8 @@ namespace TestCaseManagement.Services.Interfaces;
 
 public interface IModuleAttributeService
 {
-    Task<IEnumerable<ModuleAttributeRequest>> GetAllAttributesAsync(string moduleId);
+    Task<IEnumerable<ModuleAttributeResponse>> GetAllAttributesAsync(string moduleId);
+
     Task<IdResponse> CreateAttributeAsync(string moduleId, ModuleAttributeRequest request);
     Task<bool> DeleteAttributeAsync(string moduleId, string id);
 

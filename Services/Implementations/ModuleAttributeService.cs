@@ -30,11 +30,12 @@ namespace TestCaseManagement.Services.Implementations
             _mapper = mapper;
         }
 
-        public async Task<IEnumerable<ModuleAttributeRequest>> GetAllAttributesAsync(string moduleId)
+        public async Task<IEnumerable<ModuleAttributeResponse>> GetAllAttributesAsync(string moduleId)
         {
             var attributes = await _attributeRepository.FindAsync(a => a.ModuleId == moduleId);
-            return _mapper.Map<IEnumerable<ModuleAttributeRequest>>(attributes);
+            return _mapper.Map<IEnumerable<ModuleAttributeResponse>>(attributes);
         }
+
 
         public async Task<IdResponse> CreateAttributeAsync(string moduleId, ModuleAttributeRequest request)
         {
@@ -75,7 +76,7 @@ namespace TestCaseManagement.Services.Implementations
             attribute.Key = request.Key;
             attribute.Type = request.Type;
             attribute.IsRequired = request.IsRequired;
-            attribute.Options = request.Options;
+            
 
             _attributeRepository.Update(attribute);
             await _attributeRepository.SaveChangesAsync();  // Commit update

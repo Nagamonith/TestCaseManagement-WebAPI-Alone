@@ -29,11 +29,14 @@ using TestCaseManagement.Api.Models.Responses.Products;
                 CreateMap<Module, ModuleResponse>();
                 CreateMap<Module, ModuleWithAttributesResponse>();
 
-                // ModuleAttribute mappings
-                CreateMap<ModuleAttributeRequest, ModuleAttribute>().ReverseMap();
+            // ModuleAttribute mappings
+            CreateMap<ModuleAttributeRequest, ModuleAttribute>()
+.ForMember(dest => dest.Id, opt => opt.Ignore())   // ✅ prevent overwriting with null
+.ReverseMap();
+            CreateMap<ModuleAttribute, ModuleAttributeResponse>();
 
-                // TestSuite mappings
-                CreateMap<CreateTestSuiteRequest, TestSuite>();
+            // TestSuite mappings
+            CreateMap<CreateTestSuiteRequest, TestSuite>();
                 CreateMap<TestSuite, TestSuiteResponse>();
                 CreateMap<TestSuite, TestSuiteWithCasesResponse>();
                 CreateMap<TestSuite, TestRunTestSuiteResponse>(); // Added mapping

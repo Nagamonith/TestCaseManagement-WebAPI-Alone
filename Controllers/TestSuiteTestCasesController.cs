@@ -1,7 +1,11 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TestCaseManagement.Api.Models.DTOs.TestCases;
 using TestCaseManagement.Api.Models.DTOs.TestSuites;
+using TestCaseManagement.Api.Models.DTOs.Uploads;
 using TestCaseManagement.Api.Models.Entities;
+using TestCaseManagement.Data;
 using TestCaseManagement.Repositories.Interfaces;
 using TestCaseManagement.Services.Interfaces;
 
@@ -14,15 +18,19 @@ public class TestSuiteTestCasesController : ControllerBase
     private readonly ITestSuiteTestCaseService _service;
     private readonly IGenericRepository<TestSuiteTestCase> _repository;
     private readonly ILogger<TestSuiteTestCasesController> _logger;
+    private readonly IMapper _mapper;  // Add this
+    private readonly AppDbContext _dbContext;
 
     public TestSuiteTestCasesController(
         ITestSuiteTestCaseService service,
         IGenericRepository<TestSuiteTestCase> repository,
-        ILogger<TestSuiteTestCasesController> logger)
+        ILogger<TestSuiteTestCasesController> logger, IMapper mapper, AppDbContext dbContext)
     {
         _service = service;
         _repository = repository;
         _logger = logger;
+        _mapper = mapper;  // Add this
+        _dbContext = dbContext;
     }
 
     [HttpGet]
@@ -196,25 +204,40 @@ public class TestSuiteTestCasesController : ControllerBase
                 return BadRequest("Test case ID is required");
             }
 
-            var testSuiteTestCase = await _repository.FindAsync(t =>
-                t.TestSuiteId == testSuiteId && t.TestCaseId == testCaseId);
-            var testSuiteTestCaseItem = testSuiteTestCase.FirstOrDefault();
+            // Get the TestSuiteTestCase entity
+            var testSuiteTestCase = await _dbContext.TestSuiteTestCases
+                .Include(t => t.TestCase)
+                .Include(t => t.Uploads)
+                .FirstOrDefaultAsync(t =>
+                    t.TestSuiteId == testSuiteId &&
+                    t.TestCaseId == testCaseId);
 
-            if (testSuiteTestCaseItem == null)
+            if (testSuiteTestCase == null)
             {
                 _logger.LogWarning("Test case assignment not found: Suite={TestSuiteId}, TestCase={TestCaseId}",
                     testSuiteId, testCaseId);
                 return NotFound("Test case assignment not found");
             }
 
-            var result = await _service.GetTestCaseExecutionDetailsAsync(testSuiteTestCaseItem.Id);
-            return Ok(result);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            _logger.LogWarning(ex, "Execution details not found for test case {TestCaseId} in suite {TestSuiteId}",
-                testCaseId, testSuiteId);
-            return NotFound(ex.Message);
+            // Map to response DTO
+            var response = new TestSuiteTestCaseResponse
+            {
+                Id = testSuiteTestCase.Id,
+                TestSuiteId = testSuiteTestCase.TestSuiteId,
+                TestCase = _mapper.Map<TestCaseResponse>(testSuiteTestCase.TestCase),
+                ExecutionDetails = new ExecutionDetailsResponse
+                {
+                    TestSuiteTestCaseId = testSuiteTestCase.Id,
+                    Result = testSuiteTestCase.Result,
+                    Actual = testSuiteTestCase.Actual,
+                    Remarks = testSuiteTestCase.Remarks,
+                    AddedAt = testSuiteTestCase.AddedAt,
+                    UpdatedAt = testSuiteTestCase.UpdatedAt,
+                    Uploads = _mapper.Map<List<UploadResponse>>(testSuiteTestCase.Uploads)
+                }
+            };
+
+            return Ok(response);
         }
         catch (Exception ex)
         {
