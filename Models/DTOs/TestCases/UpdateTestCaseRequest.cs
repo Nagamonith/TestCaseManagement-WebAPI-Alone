@@ -14,6 +14,7 @@ namespace TestCaseManagement.Api.Models.DTOs.TestCases
         public string? Result { get; set; }
         public string? Actual { get; set; }
         public string? Remarks { get; set; }
+        public string? TestCaseId { get; set; } // <-- Add this property for update
         public List<ManualTestCaseStepRequest>? Steps { get; set; }
 
         // NEW property to include attributes

@@ -111,6 +111,12 @@ namespace TestCaseManagement.Services.Implementations
 
                 if (testCase == null) return false;
 
+                // Allow TestCaseId to be updated if provided and not empty
+                if (!string.IsNullOrWhiteSpace(request.TestCaseId))
+                {
+                    testCase.TestCaseId = request.TestCaseId;
+                }
+
                 _mapper.Map(request, testCase);
                 testCase.ProductVersionId = request.ProductVersionId;
                 testCase.UpdatedAt = DateTime.UtcNow;

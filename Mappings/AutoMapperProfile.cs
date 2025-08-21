@@ -1,4 +1,4 @@
-﻿    using AutoMapper;
+﻿using AutoMapper;
     using System.Linq;
     using TestCaseManagement.Api.Models.DTOs.Modules;
     using TestCaseManagement.Api.Models.DTOs.Products;
@@ -46,7 +46,8 @@ using TestCaseManagement.Api.Models.Responses.Products;
                     .ForMember(dest => dest.ProductVersionId, opt => opt.MapFrom(src => src.ProductVersionId));
 
                 CreateMap<UpdateTestCaseRequest, TestCase>()
-                    .ForMember(dest => dest.ProductVersionId, opt => opt.MapFrom(src => src.ProductVersionId));
+                    .ForMember(dest => dest.ProductVersionId, opt => opt.MapFrom(src => src.ProductVersionId))
+                    .ForMember(dest => dest.TestCaseId, opt => opt.MapFrom(src => src.TestCaseId ?? string.Empty));
 
             CreateMap<TestCase, TestCaseResponse>()
     .ForMember(dest => dest.Actual, opt => opt.MapFrom(src => src.Actual))
