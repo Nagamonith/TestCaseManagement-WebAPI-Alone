@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using TestCaseManagement.Api.Models.DTOs.TestRuns;
 using TestCaseManagement.Services.Interfaces;
+using TestCaseManagementService.Models.DTOs.TestRuns;
 
 namespace TestCaseManagement.Api.Controllers;
 

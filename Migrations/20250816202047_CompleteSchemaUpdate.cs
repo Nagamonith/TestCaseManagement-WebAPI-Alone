@@ -1,9 +1,10 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+        
 
 #nullable disable
 
-namespace TestCaseManagement.Api.Data.Migrations
+namespace TestCaseManagement.Api.Migrations
 {
     /// <inheritdoc />
     public partial class CompleteSchemaUpdate : Migration

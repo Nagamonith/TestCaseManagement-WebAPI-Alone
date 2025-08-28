@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TestCaseManagement.Api.Models.DTOs.Common;
-using TestCaseManagement.Api.Models.DTOs.TestSuites;
 using TestCaseManagement.Services.Interfaces;
+using TestCaseManagementService.Models.DTOs.Common;
+using TestCaseManagementService.Models.DTOs.TestSuites;
 
 namespace TestCaseManagement.Api.Controllers;
 

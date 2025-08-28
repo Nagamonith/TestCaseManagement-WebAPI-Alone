@@ -1,5 +1,6 @@
 using System.Net;
-using TestCaseManagement.Api.Models.DTOs.Common;
+using TestCaseManagementService.Models.DTOs.Common;
+using TestCaseManagementService.Models;
 
 namespace TestCaseManagement.Api.Middleware;
 

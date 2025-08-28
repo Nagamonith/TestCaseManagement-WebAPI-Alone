@@ -2,8 +2,13 @@
 using Microsoft.EntityFrameworkCore;
 using TestCaseManagement.Api.Extensions;
 using TestCaseManagement.Api.Middleware;
-using TestCaseManagement.Api.Utilities;
 using TestCaseManagement.Data;
+
+ var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+if (!Directory.Exists(wwwrootPath))
+{
+    Directory.CreateDirectory(wwwrootPath);
+}
 
 var builder = WebApplication.CreateBuilder(args);
 

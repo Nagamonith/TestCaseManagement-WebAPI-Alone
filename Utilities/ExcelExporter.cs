@@ -1,7 +1,7 @@
 using ClosedXML.Excel;
 using System.Data;
 using System.Drawing;
-using TestCaseManagement.Api.Models.DTOs.TestCases;
+using TestCaseManagementService.Models.DTOs.TestCases;
 
 namespace TestCaseManagement.Api.Utilities
 {

@@ -1,12 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using TestCaseManagement.Api.Models.DTOs.Common;
-using TestCaseManagement.Api.Models.DTOs.Modules;
 using TestCaseManagement.Services.Interfaces;
+using TestCaseManagementService.Models.DTOs.Common;
+using TestCaseManagementService.Models.DTOs.Modules;
 
 namespace TestCaseManagement.Api.Controllers;
 

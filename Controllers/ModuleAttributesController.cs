@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using TestCaseManagement.Api.Models.DTOs.Common;
-using TestCaseManagement.Api.Models.DTOs.Modules;
+using TestCaseManagementService.Models.DTOs.Modules;
+using TestCaseManagementService.Models.DTOs.Common;
+
 using TestCaseManagement.Services.Interfaces;
 
 namespace TestCaseManagement.Api.Controllers;
@@ -22,7 +23,6 @@ public class ModuleAttributesController : ControllerBase
         var attributes = await _attributeService.GetAllAttributesAsync(moduleId);
         return Ok(attributes);
     }
-
 
     [HttpPost]
     public async Task<ActionResult<IdResponse>> Create(string moduleId, [FromBody] ModuleAttributeRequest request)

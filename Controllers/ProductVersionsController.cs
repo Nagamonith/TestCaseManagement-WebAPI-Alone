@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using TestCaseManagement.Api.Models.DTOs.Common;
-using TestCaseManagement.Api.Models.DTOs.Products;
-using TestCaseManagement.Api.Models.Responses.Products; // Add this namespace
-using TestCaseManagement.Services.Interfaces;
+using TestCaseManagementService.Models.DTOs.Products;
+using TestCaseManagementService.Models.DTOs.Common;
+using TestCaseManagementService.Models.Responses.Products;
 
 namespace TestCaseManagement.Api.Controllers;
 

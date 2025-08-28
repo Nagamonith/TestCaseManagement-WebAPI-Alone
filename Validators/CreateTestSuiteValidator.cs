@@ -1,5 +1,5 @@
 using FluentValidation;
-using TestCaseManagement.Api.Models.DTOs.TestSuites;
+using TestCaseManagementService.Models.DTOs.TestSuites;
 
 namespace TestCaseManagement.Api.Validators;
 

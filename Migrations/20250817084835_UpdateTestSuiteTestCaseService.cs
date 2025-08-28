@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace TestCaseManagement.Api.Data.Migrations
+namespace TestCaseManagement.Api.Migrations
 {
     /// <inheritdoc />
     public partial class UpdateTestSuiteTestCaseService : Migration

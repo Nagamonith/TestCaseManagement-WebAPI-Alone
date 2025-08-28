@@ -1,6 +1,6 @@
 using FluentValidation;
-using TestCaseManagement.Api.Constants;
-using TestCaseManagement.Api.Models.DTOs.TestCases;
+using TestCaseManagementService.Models.DTOs.TestCases;
+using static TestCaseManagementService.Constants.AppConstants;
 
 namespace TestCaseManagement.Api.Validators;
 
@@ -11,7 +11,7 @@ public class CreateTestCaseValidator : AbstractValidator<CreateTestCaseRequest>
         RuleFor(x => x.ModuleId)
             .NotEmpty().WithMessage("Module ID is required");
 
-        RuleFor(x => x.ProductVersionId)  // Validate ProductVersionId instead of Version
+        RuleFor(x => x.ProductVersionId)
             .NotEmpty().WithMessage("Product version ID is required")
             .MaximumLength(50).WithMessage("Product version ID cannot exceed 50 characters");
 
@@ -27,8 +27,8 @@ public class CreateTestCaseValidator : AbstractValidator<CreateTestCaseRequest>
 
         RuleFor(x => x.TestType)
             .NotEmpty().WithMessage("Test type is required")
-            .Must(x => AppConstants.AllowedTestTypes.Contains(x))
-            .WithMessage($"Test type must be one of: {string.Join(", ", AppConstants.AllowedTestTypes)}");
+            .Must(x => AllowedTestTypes.Contains(x))
+            .WithMessage($"Test type must be one of: {string.Join(", ", AllowedTestTypes)}");
 
         RuleFor(x => x.TestTool)
             .MaximumLength(100).When(x => !string.IsNullOrEmpty(x.TestTool))

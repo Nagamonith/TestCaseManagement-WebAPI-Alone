@@ -1,13 +1,14 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using TestCaseManagement.Api.Models.DTOs.TestCases;
-using TestCaseManagement.Api.Models.DTOs.TestSuites;
-using TestCaseManagement.Api.Models.DTOs.Uploads;
-using TestCaseManagement.Api.Models.Entities;
+using TestCaseManagementService.Models.DTOs.TestCases;
+using TestCaseManagementService.Models.DTOs.TestSuites;
+using TestCaseManagementService.Models.Entities;
 using TestCaseManagement.Data;
 using TestCaseManagement.Repositories.Interfaces;
 using TestCaseManagement.Services.Interfaces;
+
+using TestCaseManagementService.Models.DTOs.Uploads;
 
 namespace TestCaseManagement.Api.Controllers;
 

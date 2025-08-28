@@ -1,20 +1,13 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using System;
 using System.Reflection;
-using TestCaseManagement.Api.Mappings;
-using TestCaseManagement.Api.Repositories.Implementations;
 using TestCaseManagement.Api.Utilities;
 using TestCaseManagement.Api.Validators;
 using TestCaseManagement.Data;
-using TestCaseManagement.Data.Configurations;
-using TestCaseManagement.Repositories;
 using TestCaseManagement.Repositories.Interfaces;
-using TestCaseManagement.Services;
 using TestCaseManagement.Services.Implementations;
 using TestCaseManagement.Services.Interfaces;
+using TestCaseManagementService.Repositories.Implementations;
 
 namespace TestCaseManagement.Api.Extensions;
 

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using TestCaseManagement.Api.Models.DTOs.Uploads;
 using TestCaseManagement.Services.Interfaces;
+using TestCaseManagementService.Models.DTOs.Uploads;
 
 namespace TestCaseManagement.Api.Controllers
 {

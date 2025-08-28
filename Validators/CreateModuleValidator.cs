@@ -1,5 +1,5 @@
 using FluentValidation;
-using TestCaseManagement.Api.Models.DTOs.Modules;
+using TestCaseManagementService.Models.DTOs.Modules;
 
 namespace TestCaseManagement.Api.Validators;
 
@@ -10,7 +10,7 @@ public class CreateModuleValidator : AbstractValidator<CreateModuleRequest>
         RuleFor(x => x.ProductId)
             .NotEmpty().WithMessage("Product ID is required");
 
-        RuleFor(x => x.ProductVersionId)  // Corrected property
+        RuleFor(x => x.ProductVersionId)
             .NotEmpty().WithMessage("Product version ID is required")
             .MaximumLength(50).WithMessage("Product version ID cannot exceed 50 characters");
 
