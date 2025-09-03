@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TestCaseManagement.Api.Extensions;
-using TestCaseManagement.Api.Middleware;
+using TestCaseManagementService.Middleware;
 using TestCaseManagement.Data;
 
- var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
 if (!Directory.Exists(wwwrootPath))
 {
     Directory.CreateDirectory(wwwrootPath);
@@ -24,7 +24,6 @@ builder.Services
 // Register DbInitializer
 builder.Services.AddTransient<DbInitializer>();
 
-// In Program.cs
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
     {
@@ -40,11 +39,11 @@ builder.Services.AddControllers()
             });
         };
     });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Database Context
-// Add this with your other services
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -64,13 +63,17 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
+// ✅ Swagger should be available in both Debug & Release
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "TestCaseManagement API v1");
+    c.RoutePrefix = "swagger"; // access via /swagger
+});
+
+// ✅ Run DB initializer only in development (optional for prod)
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-
-    // Initialize the database
     using var scope = app.Services.CreateScope();
     var dbInitializer = scope.ServiceProvider.GetRequiredService<DbInitializer>();
     await dbInitializer.InitializeAsync();
@@ -80,8 +83,6 @@ app.UseMiddleware<ExceptionHandlerMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 
 app.UseHttpsRedirection();
-
-// ✅ Enable CORS - must be after UseHttpsRedirection and before UseAuthorization
 app.UseCors("AllowFrontendClients");
 
 app.UseAuthorization();

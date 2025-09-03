@@ -22,7 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TestCaseManagementService\TestCaseManagementService.csproj" />
+    <Reference Include="TestCaseManagementService">
+      <HintPath>lib\TestCaseManagementService.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>
